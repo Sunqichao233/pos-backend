@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # MySQL 数据库服务
+  mysql:
+    image: mysql:8.0
+    container_name: pos-mysql
+    environment:
+      MYSQL_DATABASE: posdb
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+    networks:
+      - pos-network
+
+  # Spring Boot 应用服务
+  app:
+    build: .
+    container_name: pos-backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/posdb?serverTimezone=Asia/Tokyo&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - pos-network
+
+volumes:
+  mysql_data:
+
+networks:
+  pos-network:
+    driver: bridge
