@@ -29,6 +29,10 @@ public class User {
     @Column(name = "org_id", nullable = false)
     private Long orgId;
 
+    @NotNull
+    @Column(name = "store_id", nullable = false)
+    private Long storeId;
+
     @Size(min = UserConstants.Validation.MIN_USERNAME_LENGTH, 
           max = UserConstants.Validation.MAX_USERNAME_LENGTH)
     @NotNull

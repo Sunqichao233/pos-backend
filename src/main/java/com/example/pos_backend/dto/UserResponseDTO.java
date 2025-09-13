@@ -23,6 +23,8 @@ public class UserResponseDTO {
 
     private Long orgId;
 
+    private Long storeId;
+
     private String username;
 
     private String email;

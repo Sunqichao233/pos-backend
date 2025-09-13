@@ -36,21 +36,21 @@ public class UserController {
     private final UserMapper userMapper;
 
     /**
-     * 创建新用户
+     * 用户注册
      *
-     * @param userRequestDTO 用户请求信息
-     * @return 创建的用户信息
+     * @param userRequestDTO 用户注册信息
+     * @return 注册的用户信息
      */
-    @PostMapping
-    public ResponseEntity<UserResponseDTO> createUser(@Valid @RequestBody UserRequestDTO userRequestDTO) {
-        log.info("接收创建用户请求: {}", userRequestDTO.getUsername());
+    @PostMapping("/register")
+    public ResponseEntity<UserResponseDTO> registerUser(@Valid @RequestBody UserRequestDTO userRequestDTO) {
+        log.info("接收用户注册请求: {}", userRequestDTO.getUsername());
         try {
             User user = userMapper.toEntity(userRequestDTO);
             User createdUser = userService.createUser(user);
             UserResponseDTO responseDTO = userMapper.toResponseDTO(createdUser);
             return ResponseEntity.status(HttpStatus.CREATED).body(responseDTO);
         } catch (Exception e) {
-            log.error("创建用户失败: {}", e.getMessage(), e);
+            log.error("用户注册失败: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
     }

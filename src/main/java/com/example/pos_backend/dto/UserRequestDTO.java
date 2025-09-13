@@ -27,6 +27,9 @@ public class UserRequestDTO {
     @NotNull(message = "组织ID不能为空")
     private Long orgId;
 
+    @NotNull(message = "门店ID不能为空")
+    private Long storeId;
+
     @NotBlank(message = "用户名不能为空")
     @Size(min = UserConstants.Validation.MIN_USERNAME_LENGTH, 
           max = UserConstants.Validation.MAX_USERNAME_LENGTH, 

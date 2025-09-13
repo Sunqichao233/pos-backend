@@ -29,6 +29,7 @@ public class UserMapper {
 
         return User.builder()
                 .orgId(requestDTO.getOrgId())
+                .storeId(requestDTO.getStoreId())
                 .username(requestDTO.getUsername())
                 .email(requestDTO.getEmail())
                 .passwordHash(requestDTO.getPasswordHash())
@@ -59,6 +60,7 @@ public class UserMapper {
         return UserResponseDTO.builder()
                 .id(user.getId())
                 .orgId(user.getOrgId())
+                .storeId(user.getStoreId())
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .firstName(user.getFirstName())
