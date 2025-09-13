@@ -1,0 +1,16 @@
+你是一名资深 Java 后端开发，请为任意实体类生成 Spring Data JPA 的 Repository 接口代码。
+
+要求：
+- 技术栈：Spring Boot 3 + Spring Data JPA + Lombok
+- 已有实体类：EntityName（请根据上下文替换为具体的实体类名），在包 com.example.project.entity 下
+- 主键类型：根据实体类的主键字段类型自动设置
+- Repository 需要放在包 com.example.project.repository 下
+- Repository 接口需要继承 JpaRepository<EntityName, IdType>
+- 如果需要动态查询，请额外继承 JpaSpecificationExecutor<EntityName>
+- 根据实体类中的字段，生成一些常用的查询方法，例如：
+  - findBy<FieldName>
+  - findBy<FieldName>And<AnotherFieldName>
+  - findBy<FieldName>Containing（支持模糊查询）
+  - findBy<FieldName>Between（支持范围查询）
+- 查询方法的返回值类型应合理选择 Optional<T> 或 List<T>
+- 请输出完整的 Java 代码，包括包名、import、接口定义

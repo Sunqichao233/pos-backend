@@ -1,0 +1,46 @@
+你是一个资深 Java 后端工程师。请根据下面要求生成 Spring Boot 项目的 Service 和 Controller 代码：
+
+技术栈：
+- Spring Boot 最新版本
+- Spring Data JPA + Hibernate
+- Lombok
+- Java 21+ 或你项目中用的版本
+
+已有部分：
+- 实体类：EntityName（例如 User），已经存在于 `com.example.pos_backend.entity` 包
+- Repository：EntityNameRepository，继承 JpaRepository<EntityName, Long>，可选继承 JpaSpecificationExecutor
+
+需要生成：
+1. Service 类 `EntityNameService`（放在 `com.example.pos_backend.service` 包）
+   - 提供以下方法：
+     - `createEntityName(EntityName entity)`
+     - `getEntityNameById(Long id)`
+     - `getAllEntityNames()`
+     - `updateEntityName(Long id, EntityName entity)`
+     - `deleteEntityName(Long id)`
+     - 如果有必要，加上根据某些字段的查询方法，例如 `findByField(String field)`
+   - 使用 `@Service` 注解
+   - 构造函数注入 Repository
+   - 返回类型使用 Optional 或抛异常处理找不到情况
+
+2. Controller 类 `EntityNameController`（放在 `com.example.pos_backend.controller` 包）
+   - 使用 `@RestController` 和 `@RequestMapping("/api/entitynames")`
+   - 方法：
+     - `POST /api/entitynames` → 创建实体
+     - `GET /api/entitynames/{id}` → 根据 ID 获取
+     - `GET /api/entitynames` → 获取所有实体（可选分页支持）
+     - `PUT /api/entitynames/{id}` → 更新实体
+     - `DELETE /api/entitynames/{id}` → 删除实体
+   - 使用 `@RequestBody`、`@PathVariable` 等注解
+   - DTO 验证（如果适用）可用 `@Valid` + Bean Validation 注解
+   - 返回 ResponseEntity 包装结果和 HTTP 状态码
+
+额外要求（可按需加入）：
+- 包结构分明：entity / repository / service / controller
+- 使用 Lombok 注解减少样板 code（如 @Getter, @Setter, @NoArgsConstructor, @AllArgsConstructor, @Builder）
+- 方法注释或 JavaDoc 简短说明
+- 异常处理方式（例如 `EntityNotFoundException`）或统一返回结构
+- （可选）分页 & 排序支持，例如 `Pageable` 参数
+- （可选）日志记录
+
+请直接输出 `EntityNameService.java` 和 `EntityNameController.java` 的完整代码示例。

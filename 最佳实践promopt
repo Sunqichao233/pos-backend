@@ -1,0 +1,51 @@
+你是一名资深 Java 后端开发，请根据以下要求一步步生成完整的 Spring Boot 代码：
+
+上下文：
+- 技术栈：Spring Boot 3 + Spring Data JPA + Lombok + Hibernate
+- 数据库：MySQL 8.x
+- 已有实体类：EntityName（替换为具体的实体，比如 User / Product）
+- 主键类型：Long
+- 包结构规范：
+  - com.example.project.entity
+  - com.example.project.repository
+  - com.example.project.service
+  - com.example.project.controller
+  - com.example.project.dto（用于请求和响应）
+  - com.example.project.mapper（可选，用 MapStruct 或手写转换）
+  - com.example.project.common（放 ApiResponse 等通用类）
+
+生成要求：
+1. **Repository 接口**
+   - 放在 repository 包下
+   - 继承 JpaRepository<EntityName, Long> 和 JpaSpecificationExecutor<EntityName>
+   - 根据实体字段自动生成常用查询方法（如 findByXxx, findByXxxAndYyy）
+
+2. **DTO 类**
+   - RequestDTO：用于新增/创建
+   - UpdateDTO：用于更新
+   - ResponseDTO：用于返回给前端（排除敏感字段）
+   - 统一响应结构：ApiResponse<T>（包含 code, message, data）
+
+3. **Service 层**
+   - 包含 CRUD 方法：create, getById, getAll, update, delete
+   - 使用 @Service 注解
+   - 构造函数注入 Repository
+   - 使用 DTO 转换（通过 Mapper 或手动转换）
+
+4. **Controller 层**
+   - 使用 @RestController + @RequestMapping("/api/entitynames")
+   - 提供以下 REST API：
+     - POST /api/entitynames → 创建（接收 RequestDTO，返回 ResponseDTO）
+     - GET /api/entitynames/{id} → 根据 ID 查询
+     - GET /api/entitynames → 查询所有（支持分页）
+     - PUT /api/entitynames/{id} → 更新（接收 UpdateDTO）
+     - DELETE /api/entitynames/{id} → 删除
+   - 返回 ResponseEntity<ApiResponse<T>>
+
+5. **其他要求**
+   - 使用 Lombok 注解（@Data, @Builder, @NoArgsConstructor, @AllArgsConstructor）
+   - 在 DTO 上加上参数校验注解（如 @NotNull, @Email, @Size）
+   - Controller 方法要有 JavaDoc 注释，描述接口用途
+   - 遵循企业级最佳实践，代码可直接运行
+
+请输出完整的 Repository、DTO、Service、Controller 的 Java 代码。
