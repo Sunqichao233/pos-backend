@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,7 @@ import java.util.Optional;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     /**
      * 创建新用户
@@ -35,6 +37,13 @@ public class UserService {
      */
     public User createUser(User user) {
         log.info("创建新用户: {}", user.getUsername());
+        
+        // 加密密码
+        if (user.getPasswordHash() != null && !user.getPasswordHash().isEmpty()) {
+            String encodedPassword = passwordEncoder.encode(user.getPasswordHash());
+            user.setPasswordHash(encodedPassword);
+            log.debug("密码已加密");
+        }
         
         // 设置创建时间和更新时间
         Instant now = Instant.now();
@@ -226,5 +235,52 @@ public class UserService {
         user.setLastLoginAt(Instant.now());
         user.setUpdatedAt(Instant.now());
         userRepository.save(user);
+    }
+
+    /**
+     * 用户登录验证
+     *
+     * @param username 用户名
+     * @param password 密码
+     * @return 验证成功的用户信息
+     * @throws RuntimeException 如果验证失败
+     */
+    @Transactional(readOnly = true)
+    public User authenticateUser(String username, String password) {
+        log.info("用户登录验证: {}", username);
+        
+        // 查找用户
+        Optional<User> userOptional = findByUsername(username);
+        if (userOptional.isEmpty()) {
+            log.warn("用户不存在: {}", username);
+            throw new RuntimeException("用户名或密码错误");
+        }
+        
+        User user = userOptional.get();
+        
+        // 检查用户状态
+        if (!UserConstants.Status.ACTIVE.equals(user.getStatus())) {
+            log.warn("用户状态异常: {}, 状态: {}", username, user.getStatus());
+            throw new RuntimeException("账户已被禁用或暂停");
+        }
+        
+        // 验证密码
+        if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            log.warn("密码验证失败: {}", username);
+            throw new RuntimeException("用户名或密码错误");
+        }
+        
+        log.info("用户登录验证成功: {}", username);
+        return user;
+    }
+
+    /**
+     * 处理用户登录成功后的操作
+     *
+     * @param userId 用户ID
+     */
+    public void handleLoginSuccess(Long userId) {
+        log.info("处理用户登录成功，ID: {}", userId);
+        updateLastLoginTime(userId);
     }
 }

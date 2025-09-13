@@ -12,8 +12,9 @@ public class SecurityConstants {
     public static class JWT {
         /**
          * JWT 密钥（生产环境应从配置文件或环境变量读取）
+         * 至少需要512位（64字符）用于HMAC-SHA512
          */
-        public static final String SECRET = "pos-system-jwt-secret-key-2024";
+        public static final String SECRET = "pos-system-jwt-secret-key-2024-this-is-a-very-long-secure-key-for-hmac-sha512-algorithm-minimum-64-characters";
         
         /**
          * JWT 过期时间（毫秒）- 24小时

@@ -2,11 +2,9 @@ package com.example.pos_backend.controller;
 
 import com.example.pos_backend.constants.GlobalConstants;
 import com.example.pos_backend.constants.UserConstants;
-import com.example.pos_backend.dto.UserMapper;
-import com.example.pos_backend.dto.UserRequestDTO;
-import com.example.pos_backend.dto.UserResponseDTO;
-import com.example.pos_backend.dto.UserUpdateDTO;
+import com.example.pos_backend.dto.*;
 import com.example.pos_backend.entity.User;
+import com.example.pos_backend.security.JwtProvider;
 import com.example.pos_backend.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,6 +33,7 @@ public class UserController {
 
     private final UserService userService;
     private final UserMapper userMapper;
+    private final JwtProvider jwtProvider;
 
     /**
      * 用户注册
@@ -52,6 +52,64 @@ public class UserController {
         } catch (Exception e) {
             log.error("用户注册失败: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+    }
+
+    /**
+     * 用户登录
+     *
+     * @param loginRequestDTO 登录请求信息
+     * @return 登录响应信息（包含JWT令牌）
+     */
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponseDTO> loginUser(@Valid @RequestBody LoginRequestDTO loginRequestDTO) {
+        log.info("接收用户登录请求: {}", loginRequestDTO.getUsername());
+        try {
+            // 验证用户凭据
+            User user = userService.authenticateUser(loginRequestDTO.getUsername(), loginRequestDTO.getPassword());
+            
+            // 生成JWT令牌
+            String accessToken = jwtProvider.generateTokenFromUsername(user.getUsername());
+            String refreshToken = jwtProvider.generateRefreshToken(user.getUsername());
+            
+            // 获取令牌过期时间
+            long expiresIn = jwtProvider.getTokenRemainingTime(accessToken);
+            
+            // 构建用户信息
+            LoginResponseDTO.UserInfo userInfo = LoginResponseDTO.UserInfo.builder()
+                    .id(user.getId())
+                    .username(user.getUsername())
+                    .email(user.getEmail())
+                    .firstName(user.getFirstName())
+                    .lastName(user.getLastName())
+                    .role(user.getRole())
+                    .status(user.getStatus())
+                    .orgId(user.getOrgId())
+                    .storeId(user.getStoreId())
+                    .build();
+            
+            // 构建登录响应
+            LoginResponseDTO responseDTO = LoginResponseDTO.builder()
+                    .accessToken(accessToken)
+                    .refreshToken(refreshToken)
+                    .tokenType("Bearer")
+                    .expiresIn(expiresIn)
+                    .userInfo(userInfo)
+                    .loginTime(LocalDateTime.now())
+                    .build();
+            
+            // 更新最后登录时间
+            userService.handleLoginSuccess(user.getId());
+            
+            log.info("用户登录成功: {}", loginRequestDTO.getUsername());
+            return ResponseEntity.ok(responseDTO);
+            
+        } catch (RuntimeException e) {
+            log.warn("用户登录失败: {}, 原因: {}", loginRequestDTO.getUsername(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        } catch (Exception e) {
+            log.error("用户登录异常: {}, 错误: {}", loginRequestDTO.getUsername(), e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 

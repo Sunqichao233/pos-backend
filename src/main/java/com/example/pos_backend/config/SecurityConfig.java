@@ -81,6 +81,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/**",           // 认证相关接口（登录、刷新token等）
                                 "/api/users/register",    // 用户注册接口
+                                "/api/users/login",       // 用户登录接口
                                 "/api/public/**",         // 公开接口
                                 "/swagger-ui/**",         // Swagger UI
                                 "/v3/api-docs/**",        // OpenAPI 文档
