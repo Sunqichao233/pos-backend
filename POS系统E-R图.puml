@@ -334,6 +334,25 @@ package "系统管理与配置" {
         registered_at : TIMESTAMP
         created_at : TIMESTAMP
         updated_at : TIMESTAMP
+        created_by : BIGINT
+        updated_by : BIGINT
+        is_deleted : BOOLEAN
+    }
+
+    entity "DeviceCode (设备码)" as DeviceCode {
+        * device_code_id (PK) : BIGINT
+        device_id (FK) : BIGINT
+        --
+        device_code : VARCHAR(64)
+        status : ENUM
+        issued_at : TIMESTAMP
+        expired_at : TIMESTAMP
+        bound_at : TIMESTAMP
+        created_at : TIMESTAMP
+        updated_at : TIMESTAMP
+        created_by : BIGINT
+        updated_by : BIGINT
+        is_deleted : BOOLEAN
     }
 
     entity "TaxRule (税务规则)" as TaxRule {
@@ -421,5 +440,6 @@ Coupon ||--o{ OrderCoupon : "1:N"
 Order ||--o{ Receipt : "1:N"
 
 Device ||--o{ UserSession : "1:N"
+Device ||--o{ DeviceCode : "1:N"
 
 @enduml

@@ -476,7 +476,33 @@ CREATE TABLE devices (
 ALTER TABLE user_sessions ADD CONSTRAINT fk_sessions_device 
 FOREIGN KEY (device_id) REFERENCES devices(device_id);
 
--- 5.2 税务规则表 (tax_rules)
+-- 5.2 设备码表 (device_codes)
+CREATE TABLE device_codes (
+    device_code_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '设备码主键',
+    device_code VARCHAR(64) NOT NULL UNIQUE COMMENT '设备一次性码，唯一标识',
+    device_id BIGINT COMMENT '关联的设备ID',
+    status ENUM('UNUSED', 'BOUND', 'EXPIRED') NOT NULL DEFAULT 'UNUSED' COMMENT '设备码状态',
+    issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '发行时间',
+    expired_at TIMESTAMP COMMENT '过期时间',
+    bound_at TIMESTAMP COMMENT '绑定时间',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    created_by BIGINT COMMENT '创建人',
+    updated_by BIGINT COMMENT '更新人',
+    is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标识',
+    
+    FOREIGN KEY (device_id) REFERENCES devices(device_id),
+    FOREIGN KEY (created_by) REFERENCES users(user_id),
+    FOREIGN KEY (updated_by) REFERENCES users(user_id),
+    
+    INDEX idx_device_codes_code (device_code),
+    INDEX idx_device_codes_device (device_id, status),
+    INDEX idx_device_codes_status (status, expired_at),
+    INDEX idx_device_codes_issued (issued_at, status),
+    UNIQUE KEY uk_device_codes_code (device_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='设备码表，用于设备发行管理';
+
+-- 5.3 税务规则表 (tax_rules)
 CREATE TABLE tax_rules (
     tax_rule_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '税务规则主键',
     store_id BIGINT NOT NULL COMMENT '所属店铺',
