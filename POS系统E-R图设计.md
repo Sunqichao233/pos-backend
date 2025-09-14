@@ -141,23 +141,25 @@
 │                              系统管理与配置                                 │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-    Device (设备)                  DeviceCode (设备码)          TaxRule (税务规则)
+    Device (设备)                  DeviceCode (激活码)          TaxRule (税务规则)
 ┌─────────────────┐              ┌─────────────────┐           ┌─────────────────┐
 │ device_id (PK)  │─────1:N─────│device_code_id(PK)│          │ tax_rule_id(PK) │
-│ store_id (FK)   │              │ device_code     │           │ store_id (FK)   │
+│ store_id (FK)   │              │ device_code(8位) │           │ store_id (FK)   │
 │ device_name     │              │ device_id (FK)  │           │ tax_name        │
-│ device_type     │              │ status(VARCHAR) │           │ tax_rate        │
-│ mac_address     │              │ issued_at       │           │ tax_type        │
-│ ip_address      │              │ expired_at      │           │ applicable_to   │
-│ last_online     │              │ bound_at        │           │ effective_from  │
-│ status          │              │ created_at      │           │ effective_until │
-│ registered_at   │              │ updated_at      │           │ is_active       │
-│ created_at      │              │ created_by      │           │ created_at      │
-│ updated_at      │              │ updated_by      │           │ updated_at      │
-│ created_by      │              │ is_deleted      │           │ created_by      │
-│ updated_by      │              └─────────────────┘           │ updated_by      │
-│ is_deleted      │                                           │ is_deleted      │
-└─────────────────┘              Notification (通知)          └─────────────────┘
+│ device_type     │              │device_fingerprint│          │ tax_rate        │
+│ mac_address     │              │ status(VARCHAR) │           │ tax_type        │
+│ ip_address      │              │activation_attempts│         │ applicable_to   │
+│ last_online     │              │ max_attempts    │           │ effective_from  │
+│ status          │              │ issued_at       │           │ effective_until │
+│ registered_at   │              │ expired_at      │           │ is_active       │
+│ created_at      │              │ bound_at        │           │ created_at      │
+│ updated_at      │              │ created_at      │           │ updated_at      │
+│ created_by      │              │ updated_at      │           │ created_by      │
+│ updated_by      │              │ created_by      │           │ updated_by      │
+│ is_deleted      │              │ updated_by      │           │ is_deleted      │
+└─────────────────┘              │ is_deleted      │           └─────────────────┘
+                                └─────────────────┘
+                                Notification (通知)
                                 ┌─────────────────┐
                                 │notification_id  │
                                 │ (PK)            │
@@ -258,9 +260,11 @@
 - **POS终端列表**: `Device`表 - 设备信息管理
 - **设备状态**: `Device`表 - status、last_online字段
 - **设备绑定**: `Device`表 - mac_address、ip_address字段
-- **设备发行**: `DeviceCode`表 - 设备码管理，支持一次性码发行
-- **设备码状态**: `DeviceCode`表 - status字段(UNUSED/BOUND/EXPIRED)
-- **设备码绑定**: `DeviceCode`表 - device_id外键关联，bound_at时间记录
+- **设备激活**: `DeviceCode`表 - Square风格激活码管理，6-8位短码
+- **激活码状态**: `DeviceCode`表 - status字段(UNUSED/BOUND/EXPIRED)
+- **设备指纹**: `DeviceCode`表 - device_fingerprint字段存储设备唯一标识
+- **激活尝试**: `DeviceCode`表 - activation_attempts字段记录尝试次数，最大3次
+- **即时激活**: 用户输入激活码自助绑定设备，一设备一有效码
 - **设备移除**: 通过is_deleted软删除
 
 ### 🧾 税务设置页
@@ -394,7 +398,7 @@
 
 #### 4. 系统管理与配置模块
 - **Device (设备)**: POS终端设备管理
-- **DeviceCode (设备码)**: 设备发行码管理，支持一次性码绑定机制
+- **DeviceCode (激活码)**: Square风格设备激活码管理，支持6-8位短码即时激活
 - **TaxRule (税务规则)**: 税务配置管理，支持复杂税务场景
 - **Notification (通知)**: 系统通知消息管理
 

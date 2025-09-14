@@ -1,6 +1,6 @@
 package com.example.pos_backend.dto;
 
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,16 +20,16 @@ import java.time.Instant;
 public class DeviceCodeRequestDTO {
 
     /**
-     * 设备码（一次性码）
+     * 关联的设备ID（必填，Square风格按需生成）
      */
-    @NotBlank(message = "设备码不能为空")
-    @Size(max = 64, message = "设备码长度不能超过64个字符")
-    private String deviceCode;
+    @NotNull(message = "设备ID不能为空")
+    private Long deviceId;
 
     /**
-     * 关联的设备ID（可选，支持预发行）
+     * 设备指纹信息
      */
-    private Long deviceId;
+    @Size(max = 255, message = "设备指纹长度不能超过255个字符")
+    private String deviceFingerprint;
 
     /**
      * 设备码状态

@@ -21,13 +21,25 @@ public class DeviceCode {
     @Column(name = "device_code_id", nullable = false)
     private Long id;
 
-    @Size(max = 64)
+    @Size(max = 12)
     @NotNull
-    @Column(name = "device_code", nullable = false, length = 64, unique = true)
+    @Column(name = "device_code", nullable = false, length = 12, unique = true)
     private String deviceCode;
 
     @Column(name = "device_id")
     private Long deviceId;
+
+    @Size(max = 255)
+    @Column(name = "device_fingerprint", length = 255)
+    private String deviceFingerprint;
+
+    @ColumnDefault("0")
+    @Column(name = "activation_attempts")
+    private Integer activationAttempts;
+
+    @ColumnDefault("3")
+    @Column(name = "max_attempts")
+    private Integer maxAttempts;
 
     @Size(max = 20)
     @NotNull

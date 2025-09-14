@@ -476,12 +476,15 @@ CREATE TABLE devices (
 ALTER TABLE user_sessions ADD CONSTRAINT fk_sessions_device 
 FOREIGN KEY (device_id) REFERENCES devices(device_id);
 
--- 5.2 设备码表 (device_codes)
+-- 5.2 设备码表 (device_codes) - Square风格激活码
 CREATE TABLE device_codes (
     device_code_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '设备码主键',
-    device_code VARCHAR(64) NOT NULL UNIQUE COMMENT '设备一次性码，唯一标识',
-    device_id BIGINT COMMENT '关联的设备ID',
+    device_code VARCHAR(12) NOT NULL UNIQUE COMMENT '设备激活码，12位数字字母混合',
+    device_id BIGINT COMMENT '关联的设备ID（可选）',
+    device_fingerprint VARCHAR(255) COMMENT '设备指纹信息',
     status VARCHAR(20) NOT NULL DEFAULT 'UNUSED' COMMENT '设备码状态：UNUSED/BOUND/EXPIRED',
+    activation_attempts INT DEFAULT 0 COMMENT '激活尝试次数',
+    max_attempts INT DEFAULT 3 COMMENT '最大激活尝试次数',
     issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '发行时间',
     expired_at TIMESTAMP COMMENT '过期时间',
     bound_at TIMESTAMP COMMENT '绑定时间',
@@ -498,9 +501,11 @@ CREATE TABLE device_codes (
     INDEX idx_device_codes_code (device_code),
     INDEX idx_device_codes_device (device_id, status),
     INDEX idx_device_codes_status (status, expired_at),
+    INDEX idx_device_codes_fingerprint (device_fingerprint),
+    INDEX idx_device_codes_attempts (activation_attempts, status),
     INDEX idx_device_codes_issued (issued_at, status),
     UNIQUE KEY uk_device_codes_code (device_code)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='设备码表，用于设备发行管理';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='设备激活码表，Square风格即时激活';
 
 -- 5.3 税务规则表 (tax_rules)
 CREATE TABLE tax_rules (

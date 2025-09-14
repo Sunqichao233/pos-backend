@@ -34,6 +34,21 @@ public class DeviceCodeResponseDTO {
     private Long deviceId;
 
     /**
+     * 设备指纹信息
+     */
+    private String deviceFingerprint;
+
+    /**
+     * 激活尝试次数
+     */
+    private Integer activationAttempts;
+
+    /**
+     * 最大激活尝试次数
+     */
+    private Integer maxAttempts;
+
+    /**
      * 设备码状态
      */
     private String status;

@@ -151,4 +151,67 @@ public interface DeviceCodeRepository extends JpaRepository<DeviceCode, Long>, J
      */
     @Query("SELECT dc FROM DeviceCode dc WHERE dc.deviceCode LIKE :prefix% AND dc.isDeleted = false")
     List<DeviceCode> findByDeviceCodeStartingWith(@Param("prefix") String prefix);
+
+    /**
+     * 根据设备指纹查找设备码
+     */
+    Optional<DeviceCode> findByDeviceFingerprint(String deviceFingerprint);
+
+    /**
+     * 根据设备指纹和状态查找设备码
+     */
+    List<DeviceCode> findByDeviceFingerprintAndStatus(String deviceFingerprint, String status);
+
+    /**
+     * 查找激活尝试次数超过限制的设备码
+     */
+    @Query("SELECT dc FROM DeviceCode dc WHERE dc.activationAttempts >= dc.maxAttempts AND dc.status = 'UNUSED' AND dc.isDeleted = false")
+    List<DeviceCode> findExceededAttemptsDeviceCodes();
+
+    /**
+     * 根据激活尝试次数范围查找设备码
+     */
+    List<DeviceCode> findByActivationAttemptsBetween(Integer minAttempts, Integer maxAttempts);
+
+    /**
+     * 查找指定设备的有效激活码（一个设备只能有一个有效码）
+     */
+    @Query("SELECT dc FROM DeviceCode dc WHERE dc.deviceId = :deviceId AND dc.status = 'UNUSED' AND dc.isDeleted = false ORDER BY dc.createdAt DESC")
+    Optional<DeviceCode> findActiveDeviceCodeByDeviceId(@Param("deviceId") Long deviceId);
+
+    /**
+     * 根据设备指纹查找已绑定的设备码
+     */
+    @Query("SELECT dc FROM DeviceCode dc WHERE dc.deviceFingerprint = :fingerprint AND dc.status = 'BOUND' AND dc.isDeleted = false")
+    Optional<DeviceCode> findBoundDeviceCodeByFingerprint(@Param("fingerprint") String fingerprint);
+
+    /**
+     * 统计指定设备指纹的激活尝试总次数
+     */
+    @Query("SELECT COALESCE(SUM(dc.activationAttempts), 0) FROM DeviceCode dc WHERE dc.deviceFingerprint = :fingerprint AND dc.isDeleted = false")
+    int countTotalAttemptsByFingerprint(@Param("fingerprint") String fingerprint);
+
+    /**
+     * 查找需要清理的过期未使用设备码（Square风格：过期后自动清理）
+     */
+    @Query("SELECT dc FROM DeviceCode dc WHERE dc.expiredAt < :currentTime AND dc.status = 'UNUSED' AND dc.isDeleted = false")
+    List<DeviceCode> findExpiredUnusedDeviceCodes(@Param("currentTime") Instant currentTime);
+
+    /**
+     * 批量更新过期设备码状态
+     */
+    @Query("UPDATE DeviceCode dc SET dc.status = 'EXPIRED', dc.updatedAt = :currentTime WHERE dc.expiredAt < :currentTime AND dc.status = 'UNUSED' AND dc.isDeleted = false")
+    int batchExpireDeviceCodes(@Param("currentTime") Instant currentTime);
+
+    /**
+     * 查找可以重新激活的设备码（激活失败但未超过最大尝试次数）
+     */
+    @Query("SELECT dc FROM DeviceCode dc WHERE dc.activationAttempts < dc.maxAttempts AND dc.status = 'UNUSED' AND dc.expiredAt > :currentTime AND dc.isDeleted = false")
+    List<DeviceCode> findRetryableDeviceCodes(@Param("currentTime") Instant currentTime);
+
+    /**
+     * 根据设备ID查找最新的设备码（Square风格：一设备一码）
+     */
+    @Query("SELECT dc FROM DeviceCode dc WHERE dc.deviceId = :deviceId AND dc.isDeleted = false ORDER BY dc.createdAt DESC")
+    List<DeviceCode> findLatestDeviceCodesByDeviceId(@Param("deviceId") Long deviceId);
 }

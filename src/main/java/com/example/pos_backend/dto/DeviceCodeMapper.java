@@ -26,11 +26,13 @@ public class DeviceCodeMapper {
         }
 
         return DeviceCode.builder()
-                .deviceCode(requestDTO.getDeviceCode())
                 .deviceId(requestDTO.getDeviceId())
+                .deviceFingerprint(requestDTO.getDeviceFingerprint())
                 .status(requestDTO.getStatus() != null ? requestDTO.getStatus() : "UNUSED")
                 .expiredAt(requestDTO.getExpiredAt())
                 .createdBy(requestDTO.getCreatedBy())
+                .activationAttempts(0)
+                .maxAttempts(3)
                 .issuedAt(Instant.now())
                 .build();
     }
@@ -70,6 +72,9 @@ public class DeviceCodeMapper {
                 .id(deviceCode.getId())
                 .deviceCode(deviceCode.getDeviceCode())
                 .deviceId(deviceCode.getDeviceId())
+                .deviceFingerprint(deviceCode.getDeviceFingerprint())
+                .activationAttempts(deviceCode.getActivationAttempts())
+                .maxAttempts(deviceCode.getMaxAttempts())
                 .status(deviceCode.getStatus())
                 .issuedAt(deviceCode.getIssuedAt())
                 .expiredAt(deviceCode.getExpiredAt())

@@ -1,297 +1,180 @@
 package com.example.pos_backend.controller;
 
 import com.example.pos_backend.common.ApiResponse;
-import com.example.pos_backend.constants.GlobalConstants;
-import com.example.pos_backend.dto.DeviceCodeRequestDTO;
+import com.example.pos_backend.dto.DeviceActivationRequestDTO;
 import com.example.pos_backend.dto.DeviceCodeResponseDTO;
-import com.example.pos_backend.dto.DeviceCodeUpdateDTO;
 import com.example.pos_backend.exception.DeviceCodeNotFoundException;
 import com.example.pos_backend.service.DeviceCodeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Instant;
-import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
- * 设备码控制器
- * 提供设备码相关的REST API接口
+ * 设备激活码控制器 - Square风格简化API
+ * 提供设备激活相关的REST API接口
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/device-codes")
+@RequestMapping("/api/activation")
 @RequiredArgsConstructor
 public class DeviceCodeController {
 
     private final DeviceCodeService deviceCodeService;
 
     /**
-     * 创建新设备码
+     * 为指定设备生成激活码
      *
-     * @param requestDTO 设备码创建信息
-     * @return 创建的设备码信息
+     * @param deviceId  设备ID
+     * @param createdBy 创建者ID（可选）
+     * @return 生成的激活码信息
      */
-    @PostMapping
-    public ResponseEntity<ApiResponse<DeviceCodeResponseDTO>> createDeviceCode(@Valid @RequestBody DeviceCodeRequestDTO requestDTO) {
-        log.info("接收创建设备码请求: {}", requestDTO.getDeviceCode());
+    @PostMapping("/generate/{deviceId}")
+    public ResponseEntity<ApiResponse<DeviceCodeResponseDTO>> generateActivationCode(
+            @PathVariable Long deviceId,
+            @RequestParam(required = false) Long createdBy) {
+        log.info("接收生成激活码请求，设备ID: {}", deviceId);
         try {
-            DeviceCodeResponseDTO responseDTO = deviceCodeService.createDeviceCode(requestDTO);
+            DeviceCodeResponseDTO responseDTO = deviceCodeService.generateActivationCodeForDevice(deviceId, createdBy);
             return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(responseDTO));
         } catch (Exception e) {
-            log.error("创建设备码失败: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.badRequest("创建设备码失败: " + e.getMessage()));
+            log.error("生成激活码失败: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("生成激活码失败: " + e.getMessage()));
         }
     }
 
     /**
-     * 根据ID获取设备码
+     * 用户自助激活设备（核心功能）
      *
-     * @param id 设备码ID
-     * @return 设备码信息
+     * @param request 激活请求
+     * @return 激活结果
      */
-    @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<DeviceCodeResponseDTO>> getDeviceCodeById(@PathVariable Long id) {
-        log.info("接收获取设备码请求，ID: {}", id);
+    @PostMapping("/activate")
+    public ResponseEntity<ApiResponse<DeviceCodeResponseDTO>> activateDevice(@Valid @RequestBody DeviceActivationRequestDTO request) {
+        log.info("接收设备激活请求，激活码: {}", request.getActivationCode());
         try {
-            DeviceCodeResponseDTO responseDTO = deviceCodeService.getDeviceCodeById(id);
+            DeviceCodeResponseDTO responseDTO = deviceCodeService.activateDevice(request);
+            return ResponseEntity.ok(ApiResponse.success(responseDTO, "设备激活成功"));
+        } catch (RuntimeException e) {
+            log.error("设备激活失败: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.badRequest("激活失败: " + e.getMessage()));
+        } catch (Exception e) {
+            log.error("设备激活异常: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("激活异常，请稍后重试"));
+        }
+    }
+
+    /**
+     * 查询激活码状态
+     *
+     * @param activationCode 激活码
+     * @return 激活码状态信息
+     */
+    @GetMapping("/status/{activationCode}")
+    public ResponseEntity<ApiResponse<DeviceCodeResponseDTO>> getActivationCodeStatus(@PathVariable String activationCode) {
+        log.info("接收查询激活码状态请求: {}", activationCode);
+        try {
+            DeviceCodeResponseDTO responseDTO = deviceCodeService.getActivationCodeStatus(activationCode);
             return ResponseEntity.ok(ApiResponse.success(responseDTO));
         } catch (DeviceCodeNotFoundException e) {
-            log.error("获取设备码失败: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.notFound(e.getMessage()));
+            log.error("激活码不存在: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.notFound(e.getMessage()));
+        } catch (Exception e) {
+            log.error("查询激活码状态失败: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("查询失败"));
         }
     }
 
     /**
-     * 获取所有设备码（支持分页）
+     * 根据设备指纹查找已绑定的激活码
      *
-     * @param pageable     分页参数（可选）
-     * @param enablePaging 是否启用分页
-     * @return 设备码列表
+     * @param fingerprint 设备指纹
+     * @return 绑定的激活码信息
      */
-    @GetMapping
-    public ResponseEntity<ApiResponse<?>> getAllDeviceCodes(
-            @PageableDefault(size = GlobalConstants.Database.DEFAULT_PAGE_SIZE) Pageable pageable,
-            @RequestParam(value = "page", defaultValue = "false") boolean enablePaging) {
-        log.info("接收获取所有设备码请求，分页: {}", enablePaging);
-        
+    @GetMapping("/fingerprint/{fingerprint}")
+    public ResponseEntity<ApiResponse<DeviceCodeResponseDTO>> getBoundCodeByFingerprint(@PathVariable String fingerprint) {
+        log.info("接收根据设备指纹查询请求: {}", fingerprint);
         try {
-            if (enablePaging) {
-                Page<DeviceCodeResponseDTO> responseDTOs = deviceCodeService.getAllDeviceCodes(pageable);
-                return ResponseEntity.ok(ApiResponse.success(responseDTOs));
+            Optional<DeviceCodeResponseDTO> responseDTO = deviceCodeService.findBoundCodeByFingerprint(fingerprint);
+            if (responseDTO.isPresent()) {
+                return ResponseEntity.ok(ApiResponse.success(responseDTO.get()));
             } else {
-                List<DeviceCodeResponseDTO> responseDTOs = deviceCodeService.getAllDeviceCodes();
-                return ResponseEntity.ok(ApiResponse.success(responseDTOs));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.notFound("该设备指纹未绑定激活码"));
             }
         } catch (Exception e) {
-            log.error("获取设备码列表失败: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("获取设备码列表失败"));
+            log.error("查询设备指纹绑定失败: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("查询失败"));
         }
     }
 
     /**
-     * 更新设备码信息
-     *
-     * @param id        设备码ID
-     * @param updateDTO 更新的设备码信息
-     * @return 更新后的设备码信息
-     */
-    @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<DeviceCodeResponseDTO>> updateDeviceCode(@PathVariable Long id, @Valid @RequestBody DeviceCodeUpdateDTO updateDTO) {
-        log.info("接收更新设备码请求，ID: {}", id);
-        try {
-            DeviceCodeResponseDTO responseDTO = deviceCodeService.updateDeviceCode(id, updateDTO);
-            return ResponseEntity.ok(ApiResponse.updated(responseDTO));
-        } catch (DeviceCodeNotFoundException e) {
-            log.error("更新设备码失败: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.notFound(e.getMessage()));
-        } catch (Exception e) {
-            log.error("更新设备码失败: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.badRequest("更新设备码失败: " + e.getMessage()));
-        }
-    }
-
-    /**
-     * 删除设备码（软删除）
-     *
-     * @param id 设备码ID
-     * @return 删除结果
-     */
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDeviceCode(@PathVariable Long id) {
-        log.info("接收删除设备码请求，ID: {}", id);
-        try {
-            deviceCodeService.deleteDeviceCode(id);
-            return ResponseEntity.noContent().build();
-        } catch (DeviceCodeNotFoundException e) {
-            log.error("删除设备码失败: {}", e.getMessage());
-            return ResponseEntity.notFound().build();
-        } catch (Exception e) {
-            log.error("删除设备码失败: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    /**
-     * 根据设备码查找设备码记录
-     *
-     * @param deviceCode 设备码
-     * @return 设备码信息
-     */
-    @GetMapping("/code/{deviceCode}")
-    public ResponseEntity<ApiResponse<DeviceCodeResponseDTO>> getDeviceCodeByCode(@PathVariable String deviceCode) {
-        log.info("接收根据设备码获取设备码记录请求: {}", deviceCode);
-        try {
-            DeviceCodeResponseDTO responseDTO = deviceCodeService.getDeviceCodeByCode(deviceCode);
-            return ResponseEntity.ok(ApiResponse.success(responseDTO));
-        } catch (DeviceCodeNotFoundException e) {
-            log.error("获取设备码记录失败: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.notFound(e.getMessage()));
-        }
-    }
-
-    /**
-     * 根据设备ID获取设备码列表
+     * 检查设备是否有有效激活码
      *
      * @param deviceId 设备ID
-     * @return 设备码列表
+     * @return 检查结果
      */
-    @GetMapping("/device/{deviceId}")
-    public ResponseEntity<ApiResponse<List<DeviceCodeResponseDTO>>> getDeviceCodesByDeviceId(@PathVariable Long deviceId) {
-        log.info("接收根据设备ID获取设备码请求: {}", deviceId);
+    @GetMapping("/check/{deviceId}")
+    public ResponseEntity<ApiResponse<Map<String, Boolean>>> checkDeviceActivationStatus(@PathVariable Long deviceId) {
+        log.info("接收检查设备激活状态请求，设备ID: {}", deviceId);
         try {
-            List<DeviceCodeResponseDTO> responseDTOs = deviceCodeService.getDeviceCodesByDeviceId(deviceId);
-            return ResponseEntity.ok(ApiResponse.success(responseDTOs));
+            boolean hasActiveCode = deviceCodeService.hasActiveActivationCode(deviceId);
+            Map<String, Boolean> result = Map.of("hasActiveCode", hasActiveCode);
+            return ResponseEntity.ok(ApiResponse.success(result));
         } catch (Exception e) {
-            log.error("根据设备ID获取设备码失败: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("获取设备码失败"));
+            log.error("检查设备激活状态失败: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("检查失败"));
         }
     }
 
     /**
-     * 根据状态获取设备码列表
+     * 使设备的所有激活码失效（设备重置时使用）
      *
-     * @param status 设备码状态
-     * @return 设备码列表
+     * @param deviceId 设备ID
+     * @return 失效结果
      */
-    @GetMapping("/status/{status}")
-    public ResponseEntity<ApiResponse<List<DeviceCodeResponseDTO>>> getDeviceCodesByStatus(@PathVariable String status) {
-        log.info("接收根据状态获取设备码请求: {}", status);
+    @PostMapping("/invalidate/{deviceId}")
+    public ResponseEntity<ApiResponse<Map<String, Integer>>> invalidateDeviceActivationCodes(@PathVariable Long deviceId) {
+        log.info("接收使设备激活码失效请求，设备ID: {}", deviceId);
         try {
-            List<DeviceCodeResponseDTO> responseDTOs = deviceCodeService.getDeviceCodesByStatus(status);
-            return ResponseEntity.ok(ApiResponse.success(responseDTOs));
+            int invalidatedCount = deviceCodeService.invalidateDeviceActivationCodes(deviceId);
+            Map<String, Integer> result = Map.of("invalidatedCount", invalidatedCount);
+            return ResponseEntity.ok(ApiResponse.success(result, "激活码失效完成"));
         } catch (Exception e) {
-            log.error("根据状态获取设备码失败: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("获取设备码失败"));
+            log.error("使激活码失效失败: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("操作失败"));
         }
     }
 
     /**
-     * 绑定设备码到设备
+     * 批量清理过期激活码（管理员功能）
      *
-     * @param deviceCode 设备码
-     * @param deviceId   设备ID
-     * @param boundBy    绑定操作者ID（可选）
-     * @return 绑定后的设备码信息
+     * @return 清理结果
      */
-    @PostMapping("/{deviceCode}/bind")
-    public ResponseEntity<ApiResponse<DeviceCodeResponseDTO>> bindDeviceCode(
-            @PathVariable String deviceCode,
-            @RequestParam Long deviceId,
-            @RequestParam(required = false) Long boundBy) {
-        log.info("接收绑定设备码请求，设备码: {}, 设备ID: {}", deviceCode, deviceId);
+    @PostMapping("/cleanup")
+    public ResponseEntity<ApiResponse<Map<String, Integer>>> cleanupExpiredActivationCodes() {
+        log.info("接收清理过期激活码请求");
         try {
-            DeviceCodeResponseDTO responseDTO = deviceCodeService.bindDeviceCode(deviceCode, deviceId, boundBy);
-            return ResponseEntity.ok(ApiResponse.success(responseDTO, "设备码绑定成功"));
-        } catch (DeviceCodeNotFoundException e) {
-            log.error("绑定设备码失败: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.notFound(e.getMessage()));
+            int cleanedCount = deviceCodeService.cleanupExpiredActivationCodes();
+            Map<String, Integer> result = Map.of("cleanedCount", cleanedCount);
+            return ResponseEntity.ok(ApiResponse.success(result, "过期激活码清理完成"));
         } catch (Exception e) {
-            log.error("绑定设备码失败: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.badRequest("绑定设备码失败: " + e.getMessage()));
-        }
-    }
-
-    /**
-     * 生成新的设备码
-     *
-     * @param deviceId  关联的设备ID（可选）
-     * @param expiredAt 过期时间（可选）
-     * @param createdBy 创建者ID（可选）
-     * @return 生成的设备码信息
-     */
-    @PostMapping("/generate")
-    public ResponseEntity<ApiResponse<DeviceCodeResponseDTO>> generateDeviceCode(
-            @RequestParam(required = false) Long deviceId,
-            @RequestParam(required = false) Instant expiredAt,
-            @RequestParam(required = false) Long createdBy) {
-        log.info("接收生成设备码请求，设备ID: {}", deviceId);
-        try {
-            DeviceCodeResponseDTO responseDTO = deviceCodeService.generateDeviceCode(deviceId, expiredAt, createdBy);
-            return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(responseDTO));
-        } catch (Exception e) {
-            log.error("生成设备码失败: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("生成设备码失败"));
-        }
-    }
-
-    /**
-     * 获取未使用的设备码列表
-     *
-     * @return 未使用的设备码列表
-     */
-    @GetMapping("/unused")
-    public ResponseEntity<ApiResponse<List<DeviceCodeResponseDTO>>> getUnusedDeviceCodes() {
-        log.info("接收获取未使用设备码请求");
-        try {
-            List<DeviceCodeResponseDTO> responseDTOs = deviceCodeService.getUnusedDeviceCodes();
-            return ResponseEntity.ok(ApiResponse.success(responseDTOs));
-        } catch (Exception e) {
-            log.error("获取未使用设备码失败: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("获取未使用设备码失败"));
-        }
-    }
-
-    /**
-     * 获取已过期的设备码列表
-     *
-     * @return 已过期的设备码列表
-     */
-    @GetMapping("/expired")
-    public ResponseEntity<ApiResponse<List<DeviceCodeResponseDTO>>> getExpiredDeviceCodes() {
-        log.info("接收获取已过期设备码请求");
-        try {
-            List<DeviceCodeResponseDTO> responseDTOs = deviceCodeService.getExpiredDeviceCodes();
-            return ResponseEntity.ok(ApiResponse.success(responseDTOs));
-        } catch (Exception e) {
-            log.error("获取已过期设备码失败: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("获取已过期设备码失败"));
-        }
-    }
-
-    /**
-     * 批量过期设备码
-     *
-     * @param expiredBy 过期操作者ID（可选）
-     * @return 过期的设备码数量
-     */
-    @PostMapping("/expire")
-    public ResponseEntity<ApiResponse<Map<String, Integer>>> expireDeviceCodes(@RequestParam(required = false) Long expiredBy) {
-        log.info("接收批量过期设备码请求");
-        try {
-            int expiredCount = deviceCodeService.expireDeviceCodes(expiredBy);
-            Map<String, Integer> result = Map.of("expiredCount", expiredCount);
-            return ResponseEntity.ok(ApiResponse.success(result, "批量过期设备码完成"));
-        } catch (Exception e) {
-            log.error("批量过期设备码失败: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("批量过期设备码失败"));
+            log.error("清理过期激活码失败: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("清理失败"));
         }
     }
 }
