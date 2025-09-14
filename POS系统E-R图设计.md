@@ -146,7 +146,7 @@
 │ device_id (PK)  │─────1:N─────│device_code_id(PK)│          │ tax_rule_id(PK) │
 │ store_id (FK)   │              │ device_code     │           │ store_id (FK)   │
 │ device_name     │              │ device_id (FK)  │           │ tax_name        │
-│ device_type     │              │ status          │           │ tax_rate        │
+│ device_type     │              │ status(VARCHAR) │           │ tax_rate        │
 │ mac_address     │              │ issued_at       │           │ tax_type        │
 │ ip_address      │              │ expired_at      │           │ applicable_to   │
 │ last_online     │              │ bound_at        │           │ effective_from  │

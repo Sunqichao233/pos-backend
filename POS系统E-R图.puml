@@ -344,7 +344,7 @@ package "系统管理与配置" {
         device_id (FK) : BIGINT
         --
         device_code : VARCHAR(64)
-        status : ENUM
+        status : VARCHAR(20)
         issued_at : TIMESTAMP
         expired_at : TIMESTAMP
         bound_at : TIMESTAMP

@@ -481,7 +481,7 @@ CREATE TABLE device_codes (
     device_code_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '设备码主键',
     device_code VARCHAR(64) NOT NULL UNIQUE COMMENT '设备一次性码，唯一标识',
     device_id BIGINT COMMENT '关联的设备ID',
-    status ENUM('UNUSED', 'BOUND', 'EXPIRED') NOT NULL DEFAULT 'UNUSED' COMMENT '设备码状态',
+    status VARCHAR(20) NOT NULL DEFAULT 'UNUSED' COMMENT '设备码状态：UNUSED/BOUND/EXPIRED',
     issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '发行时间',
     expired_at TIMESTAMP COMMENT '过期时间',
     bound_at TIMESTAMP COMMENT '绑定时间',
