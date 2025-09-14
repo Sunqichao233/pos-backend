@@ -50,8 +50,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             // 从请求头中获取 JWT 令牌
             String jwt = getJwtFromRequest(request);
+            log.debug("提取到的JWT令牌: {}", jwt != null ? jwt.substring(0, Math.min(jwt.length(), 20)) + "..." : "null");
             
             if (StringUtils.hasText(jwt) && jwtProvider.validateToken(jwt)) {
+                log.debug("JWT令牌验证成功");
                 // 从令牌中获取用户名
                 String username = jwtProvider.getUsernameFromToken(jwt);
                 
@@ -85,6 +87,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     
                     log.debug("已为用户 '{}' 设置安全上下文", username);
                 }
+            } else {
+                log.debug("JWT令牌无效或为空，jwt: {}", jwt != null ? "存在但无效" : "null");
             }
         } catch (Exception ex) {
             log.error("无法设置用户认证信息", ex);
