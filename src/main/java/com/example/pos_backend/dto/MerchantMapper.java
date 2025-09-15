@@ -120,4 +120,41 @@ public class MerchantMapper {
                 .isDeleted(false)
                 .build();
     }
+
+    /**
+     * 实体转OAuth2登录响应DTO
+     */
+    public static MerchantLoginResponseDTO toLoginResponseDTO(Merchant merchant, Store store, 
+                                                            String accessToken, String refreshToken,
+                                                            Long expiresIn, Long refreshExpiresIn,
+                                                            String sessionId) {
+        if (merchant == null) {
+            return null;
+        }
+
+        MerchantLoginResponseDTO.MerchantInfo merchantInfo = MerchantLoginResponseDTO.MerchantInfo.builder()
+                .email(merchant.getEmail())
+                .businessName(merchant.getBusinessName())
+                .industry(merchant.getIndustry())
+                .currency(merchant.getCurrency())
+                .country(merchant.getCountry())
+                .status(merchant.getStatus())
+                .createdAt(merchant.getCreatedAt())
+                .updatedAt(merchant.getUpdatedAt())
+                .build();
+
+        return MerchantLoginResponseDTO.builder()
+                .merchantId(merchant.getId())
+                .locationId(store != null ? store.getId() : null)
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .tokenType("Bearer")
+                .expiresIn(expiresIn)
+                .refreshExpiresIn(refreshExpiresIn)
+                .sessionId(sessionId)
+                .merchantInfo(merchantInfo)
+                .status("ACTIVE")
+                .message("登录成功")
+                .build();
+    }
 }

@@ -4,15 +4,18 @@ import com.example.pos_backend.common.ApiResponse;
 import com.example.pos_backend.dto.MerchantRequestDTO;
 import com.example.pos_backend.dto.MerchantResponseDTO;
 import com.example.pos_backend.dto.MerchantUpdateDTO;
+import com.example.pos_backend.dto.MerchantLoginResponseDTO;
 import com.example.pos_backend.service.MerchantService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -30,19 +33,24 @@ public class MerchantController {
     private final MerchantService merchantService;
 
     /**
-     * 商家注册 - Square风格
+     * 商家注册 - Square风格 + 自动登录
      */
     @PostMapping("/register")
-    @Operation(summary = "商家注册", description = "创建新的商家账户和默认门店")
-    public ResponseEntity<ApiResponse<MerchantResponseDTO>> registerMerchant(
-            @Valid @RequestBody MerchantRequestDTO requestDTO) {
+    @Operation(summary = "商家注册", description = "创建新的商家账户和默认门店，并自动登录返回访问令牌")
+    public ResponseEntity<ApiResponse<MerchantLoginResponseDTO>> registerMerchant(
+            @Valid @RequestBody MerchantRequestDTO requestDTO,
+            HttpServletRequest request) {
         
         log.info("Merchant registration request received for email: {}", requestDTO.getEmail());
         
-        MerchantResponseDTO response = merchantService.registerMerchant(requestDTO);
+        // 获取客户端信息
+        String ipAddress = getClientIpAddress(request);
+        String userAgent = request.getHeader("User-Agent");
+        
+        MerchantLoginResponseDTO response = merchantService.registerMerchant(requestDTO, ipAddress, userAgent);
         
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(response, "商家注册成功"));
+                .body(ApiResponse.success(response, "商家注册成功，已自动登录"));
     }
 
     /**
@@ -169,18 +177,40 @@ public class MerchantController {
     }
 
     /**
-     * 商家登录认证
+     * 商家登录认证 - OAuth2版本
      */
     @PostMapping("/login")
-    @Operation(summary = "商家登录", description = "商家邮箱密码认证")
-    public ResponseEntity<ApiResponse<MerchantResponseDTO>> loginMerchant(
+    @Operation(summary = "商家登录", description = "商家邮箱密码认证，返回访问令牌")
+    public ResponseEntity<ApiResponse<MerchantLoginResponseDTO>> loginMerchant(
             @Parameter(description = "登录邮箱") @RequestParam String email,
-            @Parameter(description = "登录密码") @RequestParam String password) {
+            @Parameter(description = "登录密码") @RequestParam String password,
+            HttpServletRequest request) {
         
         log.info("Merchant login request received for email: {}", email);
         
-        MerchantResponseDTO response = merchantService.authenticateMerchant(email, password);
+        // 获取客户端信息
+        String ipAddress = getClientIpAddress(request);
+        String userAgent = request.getHeader("User-Agent");
+        
+        MerchantLoginResponseDTO response = merchantService.authenticateMerchant(email, password, ipAddress, userAgent);
         
         return ResponseEntity.ok(ApiResponse.success(response, "商家登录成功"));
+    }
+
+    /**
+     * 获取客户端真实IP地址
+     */
+    private String getClientIpAddress(HttpServletRequest request) {
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (StringUtils.hasText(xForwardedFor) && !"unknown".equalsIgnoreCase(xForwardedFor)) {
+            return xForwardedFor.split(",")[0].trim();
+        }
+        
+        String xRealIp = request.getHeader("X-Real-IP");
+        if (StringUtils.hasText(xRealIp) && !"unknown".equalsIgnoreCase(xRealIp)) {
+            return xRealIp;
+        }
+        
+        return request.getRemoteAddr();
     }
 }
