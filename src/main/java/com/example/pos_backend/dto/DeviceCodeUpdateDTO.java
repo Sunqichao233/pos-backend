@@ -21,7 +21,7 @@ public class DeviceCodeUpdateDTO {
     /**
      * 关联的设备ID
      */
-    private Long deviceId;
+    private String deviceId;
 
     /**
      * 设备码状态
@@ -42,5 +42,5 @@ public class DeviceCodeUpdateDTO {
     /**
      * 更新者ID
      */
-    private Long updatedBy;
+    private String updatedBy;
 }

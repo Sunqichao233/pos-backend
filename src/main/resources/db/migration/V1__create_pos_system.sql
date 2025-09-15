@@ -9,36 +9,80 @@ SET default_storage_engine = InnoDB;
 SET NAMES utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 -- =================================
--- 1. 租户与用户管理模块
+-- 1. 商家与门店管理模块（Square风格）
 -- =================================
 
--- 1.1 门店表 (stores)
-CREATE TABLE stores (
-    store_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    org_id BIGINT NOT NULL COMMENT '集团/商户ID',
-    store_name VARCHAR(100) NOT NULL COMMENT '门店名称',
-    address VARCHAR(255) DEFAULT NULL COMMENT '门店地址',
-    phone VARCHAR(20) DEFAULT NULL COMMENT '联系电话',
-    status ENUM('ACTIVE','INACTIVE') DEFAULT 'ACTIVE' COMMENT '门店状态',
-    tax_rate DECIMAL(5,4) DEFAULT 0.0000 COMMENT '默认税率',
-    currency VARCHAR(3) DEFAULT 'USD' COMMENT '币种', 
-    timezone VARCHAR(50) DEFAULT 'UTC' COMMENT '时区',
-    business_hours JSON COMMENT '营业时间配置',
+-- 1.1 商家表 (merchants) - Square风格商家注册，使用UUID主键
+CREATE TABLE merchants (
+    id CHAR(36) NOT NULL PRIMARY KEY COMMENT '商家ID（UUID格式，如MRC-xxx）',
+    email VARCHAR(255) NOT NULL UNIQUE COMMENT '商家邮箱',
+    password_hash VARCHAR(255) NOT NULL COMMENT '密码哈希',
+    business_name VARCHAR(255) NOT NULL COMMENT '企业名称',
+    industry VARCHAR(100) NOT NULL COMMENT '行业类型',
+    currency CHAR(3) NOT NULL DEFAULT 'USD' COMMENT '币种',
+    country CHAR(2) NOT NULL DEFAULT 'US' COMMENT '国家代码',
+    status VARCHAR(50) DEFAULT 'ACTIVE' COMMENT '商家状态',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_by BIGINT DEFAULT NULL,
+    created_by CHAR(36) COMMENT '创建人UUID',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    updated_by BIGINT DEFAULT NULL,
+    updated_by CHAR(36) COMMENT '更新人UUID',
     is_deleted BOOLEAN DEFAULT FALSE,
     
-    INDEX idx_stores_org (org_id),
-    INDEX idx_stores_status (status, is_deleted)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门店表';
+    INDEX idx_merchants_email (email),
+    INDEX idx_merchants_status (status, is_deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商家表（Square风格，UUID主键）';
 
--- 1.2 用户表 (users)
+-- 1.2 商家银行账户表 (merchant_bank_accounts) - 独立管理银行账户
+CREATE TABLE merchant_bank_accounts (
+    id CHAR(36) NOT NULL PRIMARY KEY COMMENT '银行账户ID（UUID格式）',
+    merchant_id CHAR(36) NOT NULL COMMENT '所属商家ID',
+    account_number VARCHAR(64) NOT NULL COMMENT '银行账户号',
+    routing_number VARCHAR(64) NOT NULL COMMENT '银行路由号',
+    account_holder VARCHAR(255) NOT NULL COMMENT '银行账户持有人',
+    account_type VARCHAR(50) DEFAULT 'CHECKING' COMMENT '账户类型（CHECKING/SAVINGS）',
+    bank_name VARCHAR(255) COMMENT '银行名称',
+    is_primary BOOLEAN DEFAULT FALSE COMMENT '是否为主账户',
+    is_verified BOOLEAN DEFAULT FALSE COMMENT '是否已验证',
+    status VARCHAR(50) DEFAULT 'ACTIVE' COMMENT '账户状态',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by CHAR(36) COMMENT '创建人UUID',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_by CHAR(36) COMMENT '更新人UUID',
+    is_deleted BOOLEAN DEFAULT FALSE,
+    
+    FOREIGN KEY (merchant_id) REFERENCES merchants(id),
+    INDEX idx_bank_accounts_merchant (merchant_id, is_deleted),
+    INDEX idx_bank_accounts_primary (merchant_id, is_primary, is_deleted),
+    INDEX idx_bank_accounts_status (status, is_verified, is_deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商家银行账户表';
+
+-- 1.3 门店表 (stores) - 使用UUID主键
+CREATE TABLE stores (
+    id CHAR(36) NOT NULL PRIMARY KEY COMMENT '门店ID（UUID格式，如LOC-xxx）',
+    merchant_id CHAR(36) NOT NULL COMMENT '所属商家ID',
+    store_name VARCHAR(255) NOT NULL COMMENT '门店名称',
+    address VARCHAR(255) COMMENT '门店地址',
+    timezone VARCHAR(64) DEFAULT 'UTC' COMMENT '时区',
+    status VARCHAR(50) DEFAULT 'ACTIVE' COMMENT '门店状态',
+    tax_rate DECIMAL(5,4) DEFAULT 0.0000 COMMENT '默认税率',
+    currency VARCHAR(3) DEFAULT 'USD' COMMENT '币种', 
+    business_hours JSON COMMENT '营业时间配置',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by CHAR(36) COMMENT '创建人UUID',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_by CHAR(36) COMMENT '更新人UUID',
+    is_deleted BOOLEAN DEFAULT FALSE,
+    
+    FOREIGN KEY (merchant_id) REFERENCES merchants(id),
+    INDEX idx_stores_merchant (merchant_id, is_deleted),
+    INDEX idx_stores_status (status, is_deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门店表（UUID主键）';
+
+-- 1.4 用户表 (users) - 门店员工，使用UUID外键
 CREATE TABLE users (
-    user_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '用户ID',
-    org_id BIGINT NOT NULL COMMENT '集团/商户ID',
-    store_id BIGINT NOT NULL COMMENT '门店ID',
+    user_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '用户ID（UUID格式）',
+    merchant_id CHAR(36) NOT NULL COMMENT '商家ID',
+    store_id CHAR(36) NOT NULL COMMENT '门店ID',
     username VARCHAR(50) NOT NULL COMMENT '用户名（唯一）',
     email VARCHAR(100) NOT NULL COMMENT '邮箱（唯一）',
     password_hash VARCHAR(255) NOT NULL COMMENT '密码哈希',
@@ -52,30 +96,31 @@ CREATE TABLE users (
     last_login_at TIMESTAMP COMMENT '最后登录时间',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    created_by BIGINT COMMENT '创建人',
-    updated_by BIGINT COMMENT '更新人',
+    created_by CHAR(36) COMMENT '创建人UUID',
+    updated_by CHAR(36) COMMENT '更新人UUID',
     is_deleted BOOLEAN DEFAULT FALSE,
     
-    FOREIGN KEY (store_id) REFERENCES stores(store_id),
-    UNIQUE INDEX idx_users_username (org_id, username),
-    UNIQUE INDEX idx_users_email (org_id, email),
+    FOREIGN KEY (merchant_id) REFERENCES merchants(id),
+    FOREIGN KEY (store_id) REFERENCES stores(id),
+    UNIQUE INDEX idx_users_username (merchant_id, username),
+    UNIQUE INDEX idx_users_email (merchant_id, email),
     INDEX idx_users_store (store_id),
     INDEX idx_users_login (email, password_hash, is_deleted),
     INDEX idx_users_pin_login (pin_hash, store_id, is_deleted),
     INDEX idx_users_store_status (store_id, status, is_deleted, hire_date)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户表（门店员工，UUID外键）';
 
 -- 1.3 角色表 (roles) - 权限角色
 CREATE TABLE roles (
-    role_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '角色主键',
+    role_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '角色主键（UUID）',
     role_name VARCHAR(50) NOT NULL COMMENT '角色名称',
     role_code VARCHAR(50) NOT NULL COMMENT '角色代码',
     description TEXT COMMENT '角色描述',
     is_active BOOLEAN DEFAULT TRUE COMMENT '是否启用',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    created_by BIGINT COMMENT '创建人',
-    updated_by BIGINT COMMENT '更新人',
+    created_by CHAR(36) COMMENT '创建人UUID',
+    updated_by CHAR(36) COMMENT '更新人UUID',
     is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标识',
     
     UNIQUE KEY uk_roles_code (role_code),
@@ -84,7 +129,7 @@ CREATE TABLE roles (
 
 -- 1.4 权限表 (permissions) - 细粒度权限
 CREATE TABLE permissions (
-    permission_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '权限主键',
+    permission_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '权限主键（UUID）',
     permission_name VARCHAR(100) NOT NULL COMMENT '权限名称',
     permission_code VARCHAR(50) NOT NULL COMMENT '权限代码',
     resource VARCHAR(50) NOT NULL COMMENT '资源标识',
@@ -92,8 +137,8 @@ CREATE TABLE permissions (
     description TEXT COMMENT '权限描述',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    created_by BIGINT COMMENT '创建人',
-    updated_by BIGINT COMMENT '更新人',
+    created_by CHAR(36) COMMENT '创建人UUID',
+    updated_by CHAR(36) COMMENT '更新人UUID',
     is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标识',
     
     UNIQUE KEY uk_permissions_code (permission_code),
@@ -104,10 +149,10 @@ CREATE TABLE permissions (
 
 -- 1.5 用户角色关联表 (user_roles)
 CREATE TABLE user_roles (
-    user_id BIGINT NOT NULL COMMENT '用户ID',
-    role_id BIGINT NOT NULL COMMENT '角色ID',
+    user_id CHAR(36) NOT NULL COMMENT '用户ID（UUID）',
+    role_id CHAR(36) NOT NULL COMMENT '角色ID',
     assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '分配时间',
-    assigned_by BIGINT COMMENT '分配人',
+    assigned_by CHAR(36) COMMENT '分配人UUID',
     is_active BOOLEAN DEFAULT TRUE COMMENT '是否启用',
     
     PRIMARY KEY (user_id, role_id),
@@ -118,10 +163,10 @@ CREATE TABLE user_roles (
 
 -- 1.6 角色权限关联表 (role_permissions)
 CREATE TABLE role_permissions (
-    role_id BIGINT NOT NULL COMMENT '角色ID',
-    permission_id BIGINT NOT NULL COMMENT '权限ID',
+    role_id CHAR(36) NOT NULL COMMENT '角色ID',
+    permission_id CHAR(36) NOT NULL COMMENT '权限ID',
     granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '授权时间',
-    granted_by BIGINT COMMENT '授权人',
+    granted_by CHAR(36) COMMENT '授权人UUID',
     
     PRIMARY KEY (role_id, permission_id),
     FOREIGN KEY (role_id) REFERENCES roles(role_id),
@@ -135,43 +180,44 @@ CREATE TABLE role_permissions (
 
 -- 2.1 商品分类表 (categories)
 CREATE TABLE categories (
-    category_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '分类主键',
-    store_id BIGINT NOT NULL COMMENT '所属店铺',
+    category_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '分类主键（UUID）',
+    store_id CHAR(36) NOT NULL COMMENT '所属店铺',
     category_name VARCHAR(100) NOT NULL COMMENT '分类名称',
     description TEXT COMMENT '分类描述',
     display_order INT DEFAULT 0 COMMENT '显示顺序',
     is_active BOOLEAN DEFAULT TRUE COMMENT '是否启用',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    created_by BIGINT COMMENT '创建人',
-    updated_by BIGINT COMMENT '更新人',
+    created_by CHAR(36) COMMENT '创建人UUID',
+    updated_by CHAR(36) COMMENT '更新人UUID',
     is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标识',
     
-    FOREIGN KEY (store_id) REFERENCES stores(store_id),
+    FOREIGN KEY (store_id) REFERENCES stores(id),
     INDEX idx_categories_store (store_id, is_active, is_deleted),
     INDEX idx_categories_order (display_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商品分类表';
 
 -- 2.2 商品表 (products)
 CREATE TABLE products (
-    product_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    org_id BIGINT NOT NULL,
-    store_id BIGINT NOT NULL,
-    category_id BIGINT COMMENT '商品分类',
+    product_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '商品ID（UUID）',
+    merchant_id CHAR(36) NOT NULL COMMENT '商家ID',
+    store_id CHAR(36) NOT NULL,
+    category_id CHAR(36) COMMENT '商品分类',
     product_name VARCHAR(200) NOT NULL COMMENT '商品名称',
     description VARCHAR(255) DEFAULT NULL COMMENT '商品描述',
     price DECIMAL(10,2) NOT NULL COMMENT '销售价格',
     image_url VARCHAR(500) COMMENT '商品图片URL',
     is_active BOOLEAN DEFAULT TRUE COMMENT '是否上架',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_by BIGINT DEFAULT NULL,
+    created_by CHAR(36) DEFAULT NULL COMMENT '创建人UUID',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    updated_by BIGINT DEFAULT NULL,
+    updated_by CHAR(36) DEFAULT NULL COMMENT '更新人UUID',
     is_deleted BOOLEAN DEFAULT FALSE,
     
-    FOREIGN KEY (store_id) REFERENCES stores(store_id),
+    FOREIGN KEY (merchant_id) REFERENCES merchants(id),
+    FOREIGN KEY (store_id) REFERENCES stores(id),
     FOREIGN KEY (category_id) REFERENCES categories(category_id),
-    INDEX idx_products_store (org_id, store_id),
+    INDEX idx_products_store (merchant_id, store_id),
     INDEX idx_products_pos_list (store_id, category_id, is_active, is_deleted, product_name, price),
     INDEX idx_products_sync (store_id, updated_at, is_deleted),
     FULLTEXT INDEX idx_products_search (product_name, description)
@@ -179,8 +225,8 @@ CREATE TABLE products (
 
 -- 2.3 库存表 (inventory)
 CREATE TABLE inventory (
-    inventory_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '库存主键',
-    product_id BIGINT NOT NULL COMMENT '商品ID',
+    inventory_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '库存主键（UUID）',
+    product_id CHAR(36) NOT NULL COMMENT '商品ID',
     current_stock INT NOT NULL DEFAULT 0 COMMENT '当前库存',
     min_stock INT DEFAULT 0 COMMENT '最低库存阈值',
     max_stock INT DEFAULT 0 COMMENT '最高库存阈值',
@@ -188,8 +234,8 @@ CREATE TABLE inventory (
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    created_by BIGINT COMMENT '创建人',
-    updated_by BIGINT COMMENT '更新人',
+    created_by CHAR(36) COMMENT '创建人UUID',
+    updated_by CHAR(36) COMMENT '更新人UUID',
     is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标识',
     
     FOREIGN KEY (product_id) REFERENCES products(product_id),
@@ -205,8 +251,8 @@ CREATE TABLE inventory (
 
 -- 3.1 客户表 (customers)
 CREATE TABLE customers (
-    customer_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '客户主键',
-    store_id BIGINT NOT NULL COMMENT '所属店铺',
+    customer_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '客户主键（UUID）',
+    store_id CHAR(36) NOT NULL COMMENT '所属店铺',
     customer_name VARCHAR(100) NOT NULL COMMENT '客户姓名',
     phone VARCHAR(20) COMMENT '手机号码',
     email VARCHAR(100) COMMENT '邮箱地址',
@@ -214,11 +260,11 @@ CREATE TABLE customers (
     membership_level VARCHAR(20) DEFAULT 'REGULAR' COMMENT '会员等级',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    created_by BIGINT COMMENT '创建人',
-    updated_by BIGINT COMMENT '更新人',
+    created_by CHAR(36) COMMENT '创建人UUID',
+    updated_by CHAR(36) COMMENT '更新人UUID',
     is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标识',
     
-    FOREIGN KEY (store_id) REFERENCES stores(store_id),
+    FOREIGN KEY (store_id) REFERENCES stores(id),
     INDEX idx_customers_store (store_id, is_deleted),
     INDEX idx_customers_phone (phone),
     INDEX idx_customers_email (email),
@@ -228,11 +274,11 @@ CREATE TABLE customers (
 
 -- 3.2 订单表 (orders)
 CREATE TABLE orders (
-    order_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    org_id BIGINT NOT NULL,
-    store_id BIGINT NOT NULL,
-    user_id BIGINT NOT NULL COMMENT '下单用户',
-    customer_id BIGINT COMMENT '客户ID',
+    order_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '订单ID（UUID）',
+    merchant_id CHAR(36) NOT NULL COMMENT '商家ID',
+    store_id CHAR(36) NOT NULL,
+    user_id CHAR(36) NOT NULL COMMENT '下单用户',
+    customer_id CHAR(36) COMMENT '客户ID',
     order_number VARCHAR(50) COMMENT '订单编号',
     idempotency_key VARCHAR(100) COMMENT '幂等性键',
     total_amount DECIMAL(12,2) NOT NULL COMMENT '订单总金额',
@@ -244,17 +290,18 @@ CREATE TABLE orders (
     order_type ENUM('DINE_IN', 'TAKEOUT', 'DELIVERY') DEFAULT 'DINE_IN' COMMENT '订单类型',
     completed_at TIMESTAMP COMMENT '完成时间',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_by BIGINT DEFAULT NULL,
+    created_by CHAR(36) DEFAULT NULL COMMENT '创建人UUID',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    updated_by BIGINT DEFAULT NULL,
+    updated_by CHAR(36) DEFAULT NULL COMMENT '更新人UUID',
     is_deleted BOOLEAN DEFAULT FALSE,
     
-    FOREIGN KEY (store_id) REFERENCES stores(store_id),
+    FOREIGN KEY (merchant_id) REFERENCES merchants(id),
+    FOREIGN KEY (store_id) REFERENCES stores(id),
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
     FOREIGN KEY (user_id) REFERENCES users(user_id),
     UNIQUE KEY uk_orders_number (order_number),
     UNIQUE KEY uk_orders_idempotency (idempotency_key),
-    INDEX idx_orders_store (org_id, store_id),
+    INDEX idx_orders_store (merchant_id, store_id),
     INDEX idx_orders_user (user_id),
     INDEX idx_orders_dashboard (store_id, created_at, status, is_deleted),
     INDEX idx_orders_status_processing (status, payment_status, store_id, updated_at),
@@ -264,18 +311,18 @@ CREATE TABLE orders (
 
 -- 3.3 订单明细表 (order_items)
 CREATE TABLE order_items (
-    order_item_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    org_id BIGINT NOT NULL,
-    store_id BIGINT NOT NULL,
-    order_id BIGINT NOT NULL COMMENT '订单ID',
-    product_id BIGINT NOT NULL COMMENT '商品ID',
+    order_item_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '订单项ID（UUID）',
+    merchant_id CHAR(36) NOT NULL COMMENT '商家ID',
+    store_id CHAR(36) NOT NULL,
+    order_id CHAR(36) NOT NULL COMMENT '订单ID',
+    product_id CHAR(36) NOT NULL COMMENT '商品ID',
     quantity INT NOT NULL COMMENT '数量',
     unit_price DECIMAL(10,2) NOT NULL COMMENT '单价',
     subtotal DECIMAL(12,2) NOT NULL COMMENT '小计金额',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_by BIGINT DEFAULT NULL,
+    created_by CHAR(36) DEFAULT NULL COMMENT '创建人UUID',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    updated_by BIGINT DEFAULT NULL,
+    updated_by CHAR(36) DEFAULT NULL COMMENT '更新人UUID',
     is_deleted BOOLEAN DEFAULT FALSE,
     
     FOREIGN KEY (order_id) REFERENCES orders(order_id),
@@ -288,8 +335,8 @@ CREATE TABLE order_items (
 
 -- 3.4 支付表 (payments)
 CREATE TABLE payments (
-    payment_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '支付主键',
-    order_id BIGINT NOT NULL COMMENT '订单ID',
+    payment_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '支付主键（UUID）',
+    order_id CHAR(36) NOT NULL COMMENT '订单ID',
     idempotency_key VARCHAR(100) NOT NULL COMMENT '幂等性键',
     payment_method VARCHAR(50) NOT NULL COMMENT '支付方式',
     amount DECIMAL(10,2) NOT NULL COMMENT '支付金额',
@@ -298,8 +345,8 @@ CREATE TABLE payments (
     processed_at TIMESTAMP COMMENT '处理时间',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    created_by BIGINT COMMENT '创建人',
-    updated_by BIGINT COMMENT '更新人',
+    created_by CHAR(36) COMMENT '创建人UUID',
+    updated_by CHAR(36) COMMENT '更新人UUID',
     is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标识',
     
     FOREIGN KEY (order_id) REFERENCES orders(order_id),
@@ -314,8 +361,8 @@ CREATE TABLE payments (
 
 -- 3.5 优惠券表 (coupons)
 CREATE TABLE coupons (
-    coupon_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '优惠券主键',
-    store_id BIGINT NOT NULL COMMENT '所属店铺',
+    coupon_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '优惠券主键（UUID）',
+    store_id CHAR(36) NOT NULL COMMENT '所属店铺',
     coupon_code VARCHAR(50) NOT NULL COMMENT '优惠券代码',
     discount_type ENUM('FIXED_AMOUNT', 'PERCENTAGE') NOT NULL COMMENT '折扣类型',
     discount_value DECIMAL(10,2) NOT NULL COMMENT '折扣值',
@@ -327,11 +374,11 @@ CREATE TABLE coupons (
     is_active BOOLEAN DEFAULT TRUE COMMENT '是否启用',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    created_by BIGINT COMMENT '创建人',
-    updated_by BIGINT COMMENT '更新人',
+    created_by CHAR(36) COMMENT '创建人UUID',
+    updated_by CHAR(36) COMMENT '更新人UUID',
     is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标识',
     
-    FOREIGN KEY (store_id) REFERENCES stores(store_id),
+    FOREIGN KEY (store_id) REFERENCES stores(id),
     UNIQUE KEY uk_coupons_code (coupon_code),
     INDEX idx_coupons_store (store_id, is_active, is_deleted),
     INDEX idx_coupons_validity (valid_from, valid_until)
@@ -339,11 +386,11 @@ CREATE TABLE coupons (
 
 -- 3.6 订单优惠券关联表 (order_coupons)
 CREATE TABLE order_coupons (
-    order_id BIGINT NOT NULL COMMENT '订单ID',
-    coupon_id BIGINT NOT NULL COMMENT '优惠券ID',
+    order_id CHAR(36) NOT NULL COMMENT '订单ID',
+    coupon_id CHAR(36) NOT NULL COMMENT '优惠券ID',
     discount_applied DECIMAL(10,2) NOT NULL COMMENT '实际折扣金额',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '使用时间',
-    created_by BIGINT COMMENT '操作人',
+    created_by CHAR(36) COMMENT '操作人UUID',
     
     PRIMARY KEY (order_id, coupon_id),
     FOREIGN KEY (order_id) REFERENCES orders(order_id),
@@ -356,9 +403,9 @@ CREATE TABLE order_coupons (
 
 -- 4.1 考勤表 (attendance)
 CREATE TABLE attendance (
-    attendance_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '考勤主键',
-    user_id BIGINT NOT NULL COMMENT '员工ID',
-    store_id BIGINT NOT NULL COMMENT '所属店铺',
+    attendance_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '考勤主键（UUID）',
+    user_id CHAR(36) NOT NULL COMMENT '员工ID',
+    store_id CHAR(36) NOT NULL COMMENT '所属店铺',
     clock_in_time TIMESTAMP NOT NULL COMMENT '上班打卡时间',
     clock_out_time TIMESTAMP COMMENT '下班打卡时间',
     total_hours DECIMAL(5,2) COMMENT '工作总时长',
@@ -368,12 +415,12 @@ CREATE TABLE attendance (
     clock_in_date DATE GENERATED ALWAYS AS (DATE(clock_in_time)) STORED COMMENT '打卡日期',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    created_by BIGINT COMMENT '创建人',
-    updated_by BIGINT COMMENT '更新人',
+    created_by CHAR(36) COMMENT '创建人UUID',
+    updated_by CHAR(36) COMMENT '更新人UUID',
     is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标识',
     
     FOREIGN KEY (user_id) REFERENCES users(user_id),
-    FOREIGN KEY (store_id) REFERENCES stores(store_id),
+    FOREIGN KEY (store_id) REFERENCES stores(id),
     UNIQUE KEY uk_attendance_idempotency (idempotency_key),
     INDEX idx_attendance_user_date (user_id, clock_in_time),
     INDEX idx_attendance_store_date (store_id, clock_in_time),
@@ -385,9 +432,9 @@ CREATE TABLE attendance (
 
 -- 4.2 用户会话表 (user_sessions)
 CREATE TABLE user_sessions (
-    session_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '会话主键',
-    user_id BIGINT NOT NULL COMMENT '用户ID',
-    device_id BIGINT COMMENT '设备ID',
+    session_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '会话主键（UUID）',
+    user_id CHAR(36) NOT NULL COMMENT '用户ID',
+    device_id CHAR(36) COMMENT '设备ID',
     token_hash VARCHAR(255) NOT NULL COMMENT 'Token哈希',
     expires_at TIMESTAMP NOT NULL COMMENT '过期时间',
     is_active BOOLEAN DEFAULT TRUE COMMENT '是否活跃',
@@ -403,9 +450,9 @@ CREATE TABLE user_sessions (
 
 -- 4.3 交班记录表 (closings)
 CREATE TABLE closings (
-    closing_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '交班主键',
-    user_id BIGINT NOT NULL COMMENT '交班员工ID',
-    store_id BIGINT NOT NULL COMMENT '所属店铺',
+    closing_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '交班主键（UUID）',
+    user_id CHAR(36) NOT NULL COMMENT '交班员工ID',
+    store_id CHAR(36) NOT NULL COMMENT '所属店铺',
     closing_date DATE NOT NULL COMMENT '交班日期',
     cash_counted DECIMAL(10,2) NOT NULL COMMENT '实际现金金额',
     cash_expected DECIMAL(10,2) NOT NULL COMMENT '预期现金金额',
@@ -413,12 +460,12 @@ CREATE TABLE closings (
     sync_status ENUM('SYNCED', 'PENDING', 'FAILED') DEFAULT 'SYNCED' COMMENT '同步状态',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    created_by BIGINT COMMENT '创建人',
-    updated_by BIGINT COMMENT '更新人',
+    created_by CHAR(36) COMMENT '创建人UUID',
+    updated_by CHAR(36) COMMENT '更新人UUID',
     is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标识',
     
     FOREIGN KEY (user_id) REFERENCES users(user_id),
-    FOREIGN KEY (store_id) REFERENCES stores(store_id),
+    FOREIGN KEY (store_id) REFERENCES stores(id),
     INDEX idx_closings_store_date (store_id, closing_date),
     INDEX idx_closings_user (user_id),
     INDEX idx_closings_sync (sync_status)
@@ -426,16 +473,16 @@ CREATE TABLE closings (
 
 -- 4.4 收据记录表 (receipts)
 CREATE TABLE receipts (
-    receipt_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '收据主键',
-    order_id BIGINT NOT NULL COMMENT '订单ID',
+    receipt_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '收据主键（UUID）',
+    order_id CHAR(36) NOT NULL COMMENT '订单ID',
     delivery_method ENUM('PRINT', 'SMS', 'EMAIL') NOT NULL COMMENT '发送方式',
     recipient VARCHAR(200) COMMENT '接收方',
     sent_at TIMESTAMP COMMENT '发送时间',
     status ENUM('PENDING', 'SENT', 'FAILED') DEFAULT 'PENDING' COMMENT '发送状态',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    created_by BIGINT COMMENT '创建人',
-    updated_by BIGINT COMMENT '更新人',
+    created_by CHAR(36) COMMENT '创建人UUID',
+    updated_by CHAR(36) COMMENT '更新人UUID',
     is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标识',
     
     FOREIGN KEY (order_id) REFERENCES orders(order_id),
@@ -449,8 +496,8 @@ CREATE TABLE receipts (
 
 -- 5.1 设备表 (devices)
 CREATE TABLE devices (
-    device_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '设备主键',
-    store_id BIGINT NOT NULL COMMENT '所属店铺',
+    device_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '设备主键（UUID）',
+    store_id CHAR(36) NOT NULL COMMENT '所属店铺',
     device_name VARCHAR(100) NOT NULL COMMENT '设备名称',
     device_type VARCHAR(50) NOT NULL COMMENT '设备类型',
     mac_address VARCHAR(17) COMMENT 'MAC地址',
@@ -460,11 +507,11 @@ CREATE TABLE devices (
     registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    created_by BIGINT COMMENT '创建人',
-    updated_by BIGINT COMMENT '更新人',
+    created_by CHAR(36) COMMENT '创建人UUID',
+    updated_by CHAR(36) COMMENT '更新人UUID',
     is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标识',
     
-    FOREIGN KEY (store_id) REFERENCES stores(store_id),
+    FOREIGN KEY (store_id) REFERENCES stores(id),
     INDEX idx_devices_store (store_id, is_deleted),
     INDEX idx_devices_status (status, last_online),
     INDEX idx_devices_mac (mac_address),
@@ -478,9 +525,9 @@ FOREIGN KEY (device_id) REFERENCES devices(device_id);
 
 -- 5.2 设备码表 (device_codes) - Square风格激活码
 CREATE TABLE device_codes (
-    device_code_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '设备码主键',
+    device_code_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '设备码主键（UUID）',
     device_code VARCHAR(12) NOT NULL UNIQUE COMMENT '设备激活码，12位数字字母混合',
-    device_id BIGINT COMMENT '关联的设备ID（可选）',
+    device_id CHAR(36) COMMENT '关联的设备ID（可选）',
     device_fingerprint VARCHAR(255) COMMENT '设备指纹信息',
     status VARCHAR(20) NOT NULL DEFAULT 'UNUSED' COMMENT '设备码状态：UNUSED/BOUND/EXPIRED',
     activation_attempts INT DEFAULT 0 COMMENT '激活尝试次数',
@@ -490,8 +537,8 @@ CREATE TABLE device_codes (
     bound_at TIMESTAMP COMMENT '绑定时间',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    created_by BIGINT COMMENT '创建人',
-    updated_by BIGINT COMMENT '更新人',
+    created_by CHAR(36) COMMENT '创建人UUID',
+    updated_by CHAR(36) COMMENT '更新人UUID',
     is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标识',
     
     FOREIGN KEY (device_id) REFERENCES devices(device_id),
@@ -509,8 +556,8 @@ CREATE TABLE device_codes (
 
 -- 5.3 税务规则表 (tax_rules)
 CREATE TABLE tax_rules (
-    tax_rule_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '税务规则主键',
-    store_id BIGINT NOT NULL COMMENT '所属店铺',
+    tax_rule_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '税务规则主键（UUID）',
+    store_id CHAR(36) NOT NULL COMMENT '所属店铺',
     tax_name VARCHAR(100) NOT NULL COMMENT '税种名称',
     tax_rate DECIMAL(5,4) NOT NULL COMMENT '税率',
     tax_type ENUM('STATE_TAX', 'CITY_TAX', 'FEDERAL_TAX', 'VAT') NOT NULL COMMENT '税种类型',
@@ -520,32 +567,32 @@ CREATE TABLE tax_rules (
     is_active BOOLEAN DEFAULT TRUE COMMENT '是否启用',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    created_by BIGINT COMMENT '创建人',
-    updated_by BIGINT COMMENT '更新人',
+    created_by CHAR(36) COMMENT '创建人UUID',
+    updated_by CHAR(36) COMMENT '更新人UUID',
     is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标识',
     
-    FOREIGN KEY (store_id) REFERENCES stores(store_id),
+    FOREIGN KEY (store_id) REFERENCES stores(id),
     INDEX idx_tax_rules_store (store_id, is_active, is_deleted),
     INDEX idx_tax_rules_effective (effective_from, effective_until)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='税务规则表';
 
 -- 5.3 通知表 (notifications)
 CREATE TABLE notifications (
-    notification_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '通知主键',
-    store_id BIGINT COMMENT '所属店铺',
-    user_id BIGINT COMMENT '目标用户',
+    notification_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '通知主键（UUID）',
+    store_id CHAR(36) COMMENT '所属店铺',
+    user_id CHAR(36) COMMENT '目标用户',
     title VARCHAR(200) NOT NULL COMMENT '通知标题',
     message TEXT NOT NULL COMMENT '通知内容',
     type VARCHAR(50) NOT NULL COMMENT '通知类型',
     is_read BOOLEAN DEFAULT FALSE COMMENT '是否已读',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    created_by BIGINT COMMENT '创建人',
-    updated_by BIGINT COMMENT '更新人',
+    created_by CHAR(36) COMMENT '创建人UUID',
+    updated_by CHAR(36) COMMENT '更新人UUID',
     read_at TIMESTAMP COMMENT '阅读时间',
     is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标识',
     
-    FOREIGN KEY (store_id) REFERENCES stores(store_id),
+    FOREIGN KEY (store_id) REFERENCES stores(id),
     FOREIGN KEY (user_id) REFERENCES users(user_id),
     INDEX idx_notifications_user (user_id, is_read, created_at),
     INDEX idx_notifications_store (store_id, type, created_at)
@@ -557,21 +604,21 @@ CREATE TABLE notifications (
 
 -- 6.1 日销售汇总表 (daily_sales_reports)
 CREATE TABLE daily_sales_reports (
-    report_id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '报表主键',
-    store_id BIGINT NOT NULL COMMENT '所属店铺',
+    report_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '报表主键（UUID）',
+    store_id CHAR(36) NOT NULL COMMENT '所属店铺',
     report_date DATE NOT NULL COMMENT '报表日期',
     total_sales_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT '总销售额',
     total_orders INT NOT NULL DEFAULT 0 COMMENT '订单总数',
     average_order_value DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '客单价',
     total_tips DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '小费总额',
-    top_product_id BIGINT COMMENT '热门商品ID',
+    top_product_id CHAR(36) COMMENT '热门商品ID',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    created_by BIGINT COMMENT '创建人',
-    updated_by BIGINT COMMENT '更新人',
+    created_by CHAR(36) COMMENT '创建人UUID',
+    updated_by CHAR(36) COMMENT '更新人UUID',
     is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标识',
     
-    FOREIGN KEY (store_id) REFERENCES stores(store_id),
+    FOREIGN KEY (store_id) REFERENCES stores(id),
     FOREIGN KEY (top_product_id) REFERENCES products(product_id),
     UNIQUE KEY uk_daily_reports_store_date (store_id, report_date),
     INDEX idx_daily_reports_date (report_date),
@@ -584,10 +631,10 @@ CREATE TABLE daily_sales_reports (
 
 -- 7.1 性能监控表
 CREATE TABLE performance_metrics (
-    metric_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    metric_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '指标ID（UUID）',
     metric_name VARCHAR(100) NOT NULL,
     metric_value DECIMAL(15,4) NOT NULL,
-    store_id BIGINT,
+    store_id CHAR(36),
     measured_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
     INDEX idx_performance_metrics_name_time (metric_name, measured_at),
@@ -596,7 +643,7 @@ CREATE TABLE performance_metrics (
 
 -- 7.2 备份历史记录表
 CREATE TABLE backup_history (
-    backup_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    backup_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '备份ID（UUID）',
     backup_type ENUM('FULL', 'INCREMENTAL', 'DIFFERENTIAL') NOT NULL,
     backup_path VARCHAR(500) NOT NULL,
     backup_size BIGINT COMMENT '备份文件大小(字节)',
@@ -612,7 +659,7 @@ CREATE TABLE backup_history (
 
 -- 7.3 系统告警表
 CREATE TABLE system_alerts (
-    alert_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    alert_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '警告ID（UUID）',
     alert_type VARCHAR(50) NOT NULL,
     alert_level ENUM('INFO', 'WARNING', 'ERROR', 'CRITICAL') NOT NULL,
     alert_message TEXT NOT NULL,
@@ -749,7 +796,7 @@ DELIMITER //
 
 -- 日销售汇总存储过程
 CREATE PROCEDURE sp_generate_daily_sales_report(
-    IN p_store_id BIGINT,
+    IN p_store_id CHAR(36),
     IN p_report_date DATE
 )
 BEGIN
@@ -797,7 +844,7 @@ END//
 
 -- 库存预警检查存储过程
 CREATE PROCEDURE sp_check_inventory_alerts(
-    IN p_store_id BIGINT
+    IN p_store_id CHAR(36)
 )
 BEGIN
     SELECT 
@@ -818,7 +865,7 @@ END//
 
 -- 用户权限检查存储过程
 CREATE PROCEDURE sp_check_user_permission(
-    IN p_user_id BIGINT,
+    IN p_user_id CHAR(36),
     IN p_resource VARCHAR(50),
     IN p_action VARCHAR(50),
     OUT p_has_permission BOOLEAN
@@ -966,74 +1013,74 @@ ORDER BY COUNT_FETCH DESC;
 -- =================================
 
 -- 基础权限数据
-INSERT INTO permissions (permission_name, permission_code, resource, action, description, created_by) VALUES
+INSERT INTO permissions (permission_id, permission_name, permission_code, resource, action, description, created_by) VALUES
 -- 用户管理权限
-('查看用户', 'user.view', 'user', 'view', '查看用户信息', 1),
-('创建用户', 'user.create', 'user', 'create', '创建新用户', 1),
-('编辑用户', 'user.edit', 'user', 'edit', '编辑用户信息', 1),
-('删除用户', 'user.delete', 'user', 'delete', '删除用户', 1),
+('PER-174000000001', '查看用户', 'user.view', 'user', 'view', '查看用户信息', 'MRC-174000000001'),
+('PER-174000000002', '创建用户', 'user.create', 'user', 'create', '创建新用户', 'MRC-174000000001'),
+('PER-174000000003', '编辑用户', 'user.edit', 'user', 'edit', '编辑用户信息', 'MRC-174000000001'),
+('PER-174000000004', '删除用户', 'user.delete', 'user', 'delete', '删除用户', 'MRC-174000000001'),
 -- 商品管理权限
-('查看商品', 'product.view', 'product', 'view', '查看商品信息', 1),
-('创建商品', 'product.create', 'product', 'create', '创建新商品', 1),
-('编辑商品', 'product.edit', 'product', 'edit', '编辑商品信息', 1),
-('删除商品', 'product.delete', 'product', 'delete', '删除商品', 1),
-('管理库存', 'inventory.manage', 'inventory', 'manage', '管理商品库存', 1),
+('PER-174000000005', '查看商品', 'product.view', 'product', 'view', '查看商品信息', 'MRC-174000000001'),
+('PER-174000000006', '创建商品', 'product.create', 'product', 'create', '创建新商品', 'MRC-174000000001'),
+('PER-174000000007', '编辑商品', 'product.edit', 'product', 'edit', '编辑商品信息', 'MRC-174000000001'),
+('PER-174000000008', '删除商品', 'product.delete', 'product', 'delete', '删除商品', 'MRC-174000000001'),
+('PER-174000000009', '管理库存', 'inventory.manage', 'inventory', 'manage', '管理商品库存', 'MRC-174000000001'),
 -- 订单管理权限
-('查看订单', 'order.view', 'order', 'view', '查看订单信息', 1),
-('创建订单', 'order.create', 'order', 'create', '创建新订单', 1),
-('编辑订单', 'order.edit', 'order', 'edit', '编辑订单信息', 1),
-('取消订单', 'order.cancel', 'order', 'cancel', '取消订单', 1),
-('处理订单', 'order.process', 'order', 'process', '处理订单状态', 1),
+('PER-174000000010', '查看订单', 'order.view', 'order', 'view', '查看订单信息', 'MRC-174000000001'),
+('PER-174000000011', '创建订单', 'order.create', 'order', 'create', '创建新订单', 'MRC-174000000001'),
+('PER-174000000012', '编辑订单', 'order.edit', 'order', 'edit', '编辑订单信息', 'MRC-174000000001'),
+('PER-174000000013', '取消订单', 'order.cancel', 'order', 'cancel', '取消订单', 'MRC-174000000001'),
+('PER-174000000014', '处理订单', 'order.process', 'order', 'process', '处理订单状态', 'MRC-174000000001'),
 -- 支付管理权限
-('查看支付', 'payment.view', 'payment', 'view', '查看支付信息', 1),
-('处理支付', 'payment.process', 'payment', 'process', '处理支付操作', 1),
-('退款处理', 'payment.refund', 'payment', 'refund', '处理退款', 1),
+('PER-174000000015', '查看支付', 'payment.view', 'payment', 'view', '查看支付信息', 'MRC-174000000001'),
+('PER-174000000016', '处理支付', 'payment.process', 'payment', 'process', '处理支付操作', 'MRC-174000000001'),
+('PER-174000000017', '退款处理', 'payment.refund', 'payment', 'refund', '处理退款', 'MRC-174000000001'),
 -- 客户管理权限
-('查看客户', 'customer.view', 'customer', 'view', '查看客户信息', 1),
-('创建客户', 'customer.create', 'customer', 'create', '创建新客户', 1),
-('编辑客户', 'customer.edit', 'customer', 'edit', '编辑客户信息', 1),
-('管理积分', 'customer.points', 'customer', 'points', '管理客户积分', 1),
+('PER-174000000018', '查看客户', 'customer.view', 'customer', 'view', '查看客户信息', 'MRC-174000000001'),
+('PER-174000000019', '创建客户', 'customer.create', 'customer', 'create', '创建新客户', 'MRC-174000000001'),
+('PER-174000000020', '编辑客户', 'customer.edit', 'customer', 'edit', '编辑客户信息', 'MRC-174000000001'),
+('PER-174000000021', '管理积分', 'customer.points', 'customer', 'points', '管理客户积分', 'MRC-174000000001'),
 -- 优惠券管理权限
-('查看优惠券', 'coupon.view', 'coupon', 'view', '查看优惠券信息', 1),
-('创建优惠券', 'coupon.create', 'coupon', 'create', '创建优惠券', 1),
-('编辑优惠券', 'coupon.edit', 'coupon', 'edit', '编辑优惠券', 1),
-('删除优惠券', 'coupon.delete', 'coupon', 'delete', '删除优惠券', 1),
+('PER-174000000022', '查看优惠券', 'coupon.view', 'coupon', 'view', '查看优惠券信息', 'MRC-174000000001'),
+('PER-174000000023', '创建优惠券', 'coupon.create', 'coupon', 'create', '创建优惠券', 'MRC-174000000001'),
+('PER-174000000024', '编辑优惠券', 'coupon.edit', 'coupon', 'edit', '编辑优惠券', 'MRC-174000000001'),
+('PER-174000000025', '删除优惠券', 'coupon.delete', 'coupon', 'delete', '删除优惠券', 'MRC-174000000001'),
 -- 报表权限
-('查看报表', 'report.view', 'report', 'view', '查看销售报表', 1),
-('导出报表', 'report.export', 'report', 'export', '导出报表数据', 1),
+('PER-174000000026', '查看报表', 'report.view', 'report', 'view', '查看销售报表', 'MRC-174000000001'),
+('PER-174000000027', '导出报表', 'report.export', 'report', 'export', '导出报表数据', 'MRC-174000000001'),
 -- 店铺管理权限
-('查看店铺设置', 'store.view', 'store', 'view', '查看店铺设置', 1),
-('编辑店铺设置', 'store.edit', 'store', 'edit', '编辑店铺设置', 1),
-('管理设备', 'device.manage', 'device', 'manage', '管理POS设备', 1),
-('管理税务', 'tax.manage', 'tax', 'manage', '管理税务规则', 1),
+('PER-174000000028', '查看店铺设置', 'store.view', 'store', 'view', '查看店铺设置', 'MRC-174000000001'),
+('PER-174000000029', '编辑店铺设置', 'store.edit', 'store', 'edit', '编辑店铺设置', 'MRC-174000000001'),
+('PER-174000000030', '管理设备', 'device.manage', 'device', 'manage', '管理POS设备', 'MRC-174000000001'),
+('PER-174000000031', '管理税务', 'tax.manage', 'tax', 'manage', '管理税务规则', 'MRC-174000000001'),
 -- 考勤管理权限
-('查看考勤', 'attendance.view', 'attendance', 'view', '查看考勤记录', 1),
-('打卡操作', 'attendance.clock', 'attendance', 'clock', '执行打卡操作', 1),
-('管理考勤', 'attendance.manage', 'attendance', 'manage', '管理员工考勤', 1),
+('PER-174000000032', '查看考勤', 'attendance.view', 'attendance', 'view', '查看考勤记录', 'MRC-174000000001'),
+('PER-174000000033', '打卡操作', 'attendance.clock', 'attendance', 'clock', '执行打卡操作', 'MRC-174000000001'),
+('PER-174000000034', '管理考勤', 'attendance.manage', 'attendance', 'manage', '管理员工考勤', 'MRC-174000000001'),
 -- 交班权限
-('执行交班', 'closing.execute', 'closing', 'execute', '执行交班操作', 1),
-('查看交班记录', 'closing.view', 'closing', 'view', '查看交班记录', 1);
+('PER-174000000035', '执行交班', 'closing.execute', 'closing', 'execute', '执行交班操作', 'MRC-174000000001'),
+('PER-174000000036', '查看交班记录', 'closing.view', 'closing', 'view', '查看交班记录', 'MRC-174000000001');
 
 -- 基础角色数据
-INSERT INTO roles (role_name, role_code, description, created_by) VALUES
-('超级管理员', 'SUPER_ADMIN', '系统超级管理员，拥有所有权限', 1),
-('店长', 'STORE_MANAGER', '店铺管理员，管理店铺日常运营', 1),
-('收银员', 'CASHIER', '收银员，处理订单和支付', 1),
-('服务员', 'WAITER', '服务员，创建订单和处理客户', 1);
+INSERT INTO roles (role_id, role_name, role_code, description, created_by) VALUES
+('ROL-174000000001', '超级管理员', 'SUPER_ADMIN', '系统超级管理员，拥有所有权限', 'MRC-174000000001'),
+('ROL-174000000002', '店长', 'STORE_MANAGER', '店铺管理员，管理店铺日常运营', 'MRC-174000000001'),
+('ROL-174000000003', '收银员', 'CASHIER', '收银员，处理订单和支付', 'MRC-174000000001'),
+('ROL-174000000004', '服务员', 'WAITER', '服务员，创建订单和处理客户', 'MRC-174000000001');
 
 -- 角色权限分配
 -- 超级管理员 - 所有权限
 INSERT INTO role_permissions (role_id, permission_id, granted_by)
-SELECT 1, permission_id, 1 FROM permissions;
+SELECT 'ROL-174000000001', permission_id, 'MRC-174000000001' FROM permissions;
 
 -- 店长权限 (除了用户删除)
 INSERT INTO role_permissions (role_id, permission_id, granted_by)
-SELECT 2, permission_id, 1 FROM permissions 
+SELECT 'ROL-174000000002', permission_id, 'MRC-174000000001' FROM permissions 
 WHERE permission_code NOT IN ('user.delete');
 
 -- 收银员权限
 INSERT INTO role_permissions (role_id, permission_id, granted_by)
-SELECT 3, permission_id, 1 FROM permissions 
+SELECT 'ROL-174000000003', permission_id, 'MRC-174000000001' FROM permissions 
 WHERE permission_code IN (
     'product.view', 'inventory.manage',
     'order.view', 'order.create', 'order.edit', 'order.process',
@@ -1045,7 +1092,7 @@ WHERE permission_code IN (
 
 -- 服务员权限
 INSERT INTO role_permissions (role_id, permission_id, granted_by)
-SELECT 4, permission_id, 1 FROM permissions 
+SELECT 'ROL-174000000004', permission_id, 'MRC-174000000001' FROM permissions 
 WHERE permission_code IN (
     'product.view',
     'order.view', 'order.create', 'order.edit',
@@ -1053,65 +1100,84 @@ WHERE permission_code IN (
     'attendance.clock'
 );
 
--- 示例店铺数据
-INSERT INTO stores (org_id, store_id, store_name, address, phone, status, tax_rate, currency, timezone, business_hours, created_by) VALUES
-(1, 1, 'Demo Coffee Shop', '123 Main Street, New York, NY 10001', '+1-555-0123', 'ACTIVE', 0.0875, 'USD', 'America/New_York', 
-'{"monday": {"open": "07:00", "close": "22:00"}, "tuesday": {"open": "07:00", "close": "22:00"}, "wednesday": {"open": "07:00", "close": "22:00"}, "thursday": {"open": "07:00", "close": "22:00"}, "friday": {"open": "07:00", "close": "23:00"}, "saturday": {"open": "08:00", "close": "23:00"}, "sunday": {"open": "08:00", "close": "21:00"}}', 1);
+-- 示例商家数据（Square风格，UUID主键）
+INSERT INTO merchants (id, email, password_hash, business_name, industry, currency, country, status, created_by) VALUES
+('MRC-174000000001', 'owner@trip7cafe.com', '$2a$10$rMgr4YOhVNcXP7Qhp8jQHe7vKbQZ8tXkF2VyLjKrX3nP9sWqR1tGu', 'Trip7 Cafe Holdings', 'restaurant', 'USD', 'US', 'ACTIVE', 'MRC-174000000001');
+
+-- 示例银行账户数据
+INSERT INTO merchant_bank_accounts (id, merchant_id, account_number, routing_number, account_holder, account_type, bank_name, is_primary, is_verified, status, created_by) VALUES
+('BA-174000000001', 'MRC-174000000001', '1234567890', '987654321', 'Trip7 Cafe Holdings', 'CHECKING', 'Bank of America', TRUE, TRUE, 'ACTIVE', 'MRC-174000000001');
+
+-- 示例门店数据
+INSERT INTO stores (id, merchant_id, store_name, address, timezone, status, tax_rate, currency, business_hours, created_by) VALUES
+('LOC-174000000001', 'MRC-174000000001', '新宿店', '東京都新宿区1-2-3', 'Asia/Tokyo', 'ACTIVE', 0.0875, 'USD', 
+'{"monday": {"open": "07:00", "close": "22:00"}, "tuesday": {"open": "07:00", "close": "22:00"}, "wednesday": {"open": "07:00", "close": "22:00"}, "thursday": {"open": "07:00", "close": "22:00"}, "friday": {"open": "07:00", "close": "23:00"}, "saturday": {"open": "08:00", "close": "23:00"}, "sunday": {"open": "08:00", "close": "21:00"}}', 'MRC-174000000001');
 
 -- 示例管理员用户
-INSERT INTO users (org_id, store_id, username, email, password_hash, pin_hash, first_name, last_name, role, status, created_by, salary, hire_date) VALUES
-(1, 1, 'admin', 'admin@demoshop.com', '$2a$10$rMgr4YOhVNcXP7Qhp8jQHe7vKbQZ8tXkF2VyLjKrX3nP9sWqR1tGu', '$2a$10$abcdef1234567890', 'Admin', 'User', 'OWNER', 'ACTIVE', 1, 50000.00, '2024-01-01');
+INSERT INTO users (user_id, merchant_id, store_id, username, email, password_hash, pin_hash, first_name, last_name, role, status, created_by, salary, hire_date) VALUES
+('USR-174000000001', 'MRC-174000000001', 'LOC-174000000001', 'admin', 'admin@trip7cafe.com', '$2a$10$rMgr4YOhVNcXP7Qhp8jQHe7vKbQZ8tXkF2VyLjKrX3nP9sWqR1tGu', '$2a$10$abcdef1234567890', 'Admin', 'User', 'OWNER', 'ACTIVE', 'MRC-174000000001', 50000.00, '2024-01-01');
 
 -- 分配超级管理员角色
-INSERT INTO user_roles (user_id, role_id, assigned_by) VALUES (1, 1, 1);
+INSERT INTO user_roles (user_id, role_id, assigned_by) VALUES ('USR-174000000001', 'ROL-174000000001', 'MRC-174000000001');
 
 -- 示例商品分类和商品
-INSERT INTO categories (store_id, category_name, description, display_order, created_by) VALUES
-(1, '咖啡', '各类咖啡饮品', 1, 1),
-(1, '茶饮', '茶类饮品', 2, 1),
-(1, '甜点', '蛋糕和甜品', 3, 1),
-(1, '轻食', '三明治和沙拉', 4, 1);
+INSERT INTO categories (category_id, store_id, category_name, description, display_order, created_by) VALUES
+('CAT-174000000001', 'LOC-174000000001', '咖啡', '各类咖啡饮品', 1, 'MRC-174000000001'),
+('CAT-174000000002', 'LOC-174000000001', '茶饮', '茶类饮品', 2, 'MRC-174000000001'),
+('CAT-174000000003', 'LOC-174000000001', '甜点', '蛋糕和甜品', 3, 'MRC-174000000001'),
+('CAT-174000000004', 'LOC-174000000001', '轻食', '三明治和沙拉', 4, 'MRC-174000000001');
 
 -- 插入商品数据
-INSERT INTO products (org_id, store_id, category_id, product_name, description, price, is_active, created_by) VALUES
+INSERT INTO products (product_id, merchant_id, store_id, category_id, product_name, description, price, is_active, created_by) VALUES
 -- 咖啡类
-(1, 1, 1, '美式咖啡', '经典美式黑咖啡', 3.50, TRUE, 1),
-(1, 1, 1, '拿铁', '香浓牛奶咖啡', 4.50, TRUE, 1),
-(1, 1, 1, '卡布奇诺', '意式卡布奇诺', 4.00, TRUE, 1),
-(1, 1, 1, '摩卡', '巧克力摩卡咖啡', 5.00, TRUE, 1),
+('PRD-174000000001', 'MRC-174000000001', 'LOC-174000000001', 'CAT-174000000001', '美式咖啡', '经典美式黑咖啡', 3.50, TRUE, 'MRC-174000000001'),
+('PRD-174000000002', 'MRC-174000000001', 'LOC-174000000001', 'CAT-174000000001', '拿铁', '香浓牛奶咖啡', 4.50, TRUE, 'MRC-174000000001'),
+('PRD-174000000003', 'MRC-174000000001', 'LOC-174000000001', 'CAT-174000000001', '卡布奇诺', '意式卡布奇诺', 4.00, TRUE, 'MRC-174000000001'),
+('PRD-174000000004', 'MRC-174000000001', 'LOC-174000000001', 'CAT-174000000001', '摩卡', '巧克力摩卡咖啡', 5.00, TRUE, 'MRC-174000000001'),
 -- 茶饮类
-(1, 1, 2, '绿茶', '清香绿茶', 2.50, TRUE, 1),
-(1, 1, 2, '红茶', '经典红茶', 2.50, TRUE, 1),
-(1, 1, 2, '柠檬茶', '清爽柠檬茶', 3.00, TRUE, 1),
+('PRD-174000000005', 'MRC-174000000001', 'LOC-174000000001', 'CAT-174000000002', '绿茶', '清香绿茶', 2.50, TRUE, 'MRC-174000000001'),
+('PRD-174000000006', 'MRC-174000000001', 'LOC-174000000001', 'CAT-174000000002', '红茶', '经典红茶', 2.50, TRUE, 'MRC-174000000001'),
+('PRD-174000000007', 'MRC-174000000001', 'LOC-174000000001', 'CAT-174000000002', '柠檬茶', '清爽柠檬茶', 3.00, TRUE, 'MRC-174000000001'),
 -- 甜点类
-(1, 1, 3, '芝士蛋糕', '纽约风味芝士蛋糕', 6.50, TRUE, 1),
-(1, 1, 3, '巧克力蛋糕', '浓郁巧克力蛋糕', 5.50, TRUE, 1),
-(1, 1, 3, '提拉米苏', '意式提拉米苏', 7.00, TRUE, 1),
+('PRD-174000000008', 'MRC-174000000001', 'LOC-174000000001', 'CAT-174000000003', '芝士蛋糕', '纽约风味芝士蛋糕', 6.50, TRUE, 'MRC-174000000001'),
+('PRD-174000000009', 'MRC-174000000001', 'LOC-174000000001', 'CAT-174000000003', '巧克力蛋糕', '浓郁巧克力蛋糕', 5.50, TRUE, 'MRC-174000000001'),
+('PRD-174000000010', 'MRC-174000000001', 'LOC-174000000001', 'CAT-174000000003', '提拉米苏', '意式提拉米苏', 7.00, TRUE, 'MRC-174000000001'),
 -- 轻食类
-(1, 1, 4, '火腿三明治', '经典火腿芝士三明治', 8.50, TRUE, 1),
-(1, 1, 4, '凯撒沙拉', '新鲜凯撒沙拉', 9.00, TRUE, 1);
+('PRD-174000000011', 'MRC-174000000001', 'LOC-174000000001', 'CAT-174000000004', '火腿三明治', '经典火腿芝士三明治', 8.50, TRUE, 'MRC-174000000001'),
+('PRD-174000000012', 'MRC-174000000001', 'LOC-174000000001', 'CAT-174000000004', '凯撒沙拉', '新鲜凯撒沙拉', 9.00, TRUE, 'MRC-174000000001');
 
 -- 初始化库存数据
-INSERT INTO inventory (product_id, current_stock, min_stock, max_stock, cost_price, created_by)
-SELECT product_id, 100, 10, 500, price * 0.6, 1 FROM products;
+INSERT INTO inventory (inventory_id, product_id, current_stock, min_stock, max_stock, cost_price, created_by) VALUES
+('INV-174000000001', 'PRD-174000000001', 100, 10, 500, 2.10, 'MRC-174000000001'),
+('INV-174000000002', 'PRD-174000000002', 100, 10, 500, 2.70, 'MRC-174000000001'),
+('INV-174000000003', 'PRD-174000000003', 100, 10, 500, 2.40, 'MRC-174000000001'),
+('INV-174000000004', 'PRD-174000000004', 100, 10, 500, 3.00, 'MRC-174000000001'),
+('INV-174000000005', 'PRD-174000000005', 100, 10, 500, 1.50, 'MRC-174000000001'),
+('INV-174000000006', 'PRD-174000000006', 100, 10, 500, 1.50, 'MRC-174000000001'),
+('INV-174000000007', 'PRD-174000000007', 100, 10, 500, 1.80, 'MRC-174000000001'),
+('INV-174000000008', 'PRD-174000000008', 100, 10, 500, 3.90, 'MRC-174000000001'),
+('INV-174000000009', 'PRD-174000000009', 100, 10, 500, 3.30, 'MRC-174000000001'),
+('INV-174000000010', 'PRD-174000000010', 100, 10, 500, 4.20, 'MRC-174000000001'),
+('INV-174000000011', 'PRD-174000000011', 100, 10, 500, 5.10, 'MRC-174000000001'),
+('INV-174000000012', 'PRD-174000000012', 100, 10, 500, 5.40, 'MRC-174000000001');
 
 -- 示例税务规则
-INSERT INTO tax_rules (store_id, tax_name, tax_rate, tax_type, applicable_to, effective_from, created_by) VALUES
-(1, '纽约州税', 0.0400, 'STATE_TAX', 'ALL', '2024-01-01', 1),
-(1, '纽约市税', 0.0475, 'CITY_TAX', 'ALL', '2024-01-01', 1);
+INSERT INTO tax_rules (tax_rule_id, store_id, tax_name, tax_rate, tax_type, applicable_to, effective_from, created_by) VALUES
+('TAX-174000000001', 'LOC-174000000001', '纽约州税', 0.0400, 'STATE_TAX', 'ALL', '2024-01-01', 'MRC-174000000001'),
+('TAX-174000000002', 'LOC-174000000001', '纽约市税', 0.0475, 'CITY_TAX', 'ALL', '2024-01-01', 'MRC-174000000001');
 
 -- 示例设备
-INSERT INTO devices (store_id, device_name, device_type, status, created_by) VALUES
-(1, 'POS Terminal 1', 'POS_TERMINAL', 'ONLINE', 1),
-(1, 'Kitchen Display 1', 'KITCHEN_DISPLAY', 'ONLINE', 1),
-(1, 'Receipt Printer 1', 'RECEIPT_PRINTER', 'ONLINE', 1);
+INSERT INTO devices (device_id, store_id, device_name, device_type, status, created_by) VALUES
+('DEV-174000000001', 'LOC-174000000001', 'POS Terminal 1', 'POS_TERMINAL', 'ONLINE', 'MRC-174000000001'),
+('DEV-174000000002', 'LOC-174000000001', 'Kitchen Display 1', 'KITCHEN_DISPLAY', 'ONLINE', 'MRC-174000000001'),
+('DEV-174000000003', 'LOC-174000000001', 'Receipt Printer 1', 'RECEIPT_PRINTER', 'ONLINE', 'MRC-174000000001');
 
 -- 插入性能基准数据
-INSERT INTO performance_metrics (metric_name, metric_value, measured_at) VALUES
-('baseline_order_insert_time_ms', 50.0, NOW()),
-('baseline_product_search_time_ms', 20.0, NOW()),
-('baseline_payment_process_time_ms', 100.0, NOW()),
-('baseline_report_generation_time_ms', 500.0, NOW());
+INSERT INTO performance_metrics (metric_id, metric_name, metric_value, measured_at) VALUES
+('MET-174000000001', 'baseline_order_insert_time_ms', 50.0, NOW()),
+('MET-174000000002', 'baseline_product_search_time_ms', 20.0, NOW()),
+('MET-174000000003', 'baseline_payment_process_time_ms', 100.0, NOW()),
+('MET-174000000004', 'baseline_report_generation_time_ms', 500.0, NOW());
 
 -- =================================
 -- 14. 性能调优配置
@@ -1182,9 +1248,9 @@ STARTS (CURDATE() + INTERVAL 1 DAY + INTERVAL 1 HOUR)
 DO
 BEGIN
     DECLARE done INT DEFAULT FALSE;
-    DECLARE v_store_id BIGINT;
+    DECLARE v_store_id CHAR(36);
     DECLARE store_cursor CURSOR FOR 
-        SELECT store_id FROM stores WHERE status = 'ACTIVE' AND is_deleted = FALSE;
+        SELECT id FROM stores WHERE status = 'ACTIVE' AND is_deleted = FALSE;
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
     
     OPEN store_cursor;
@@ -1206,12 +1272,12 @@ STARTS CURRENT_TIMESTAMP
 DO
 BEGIN
     DECLARE done INT DEFAULT FALSE;
-    DECLARE v_store_id BIGINT;
+    DECLARE v_store_id CHAR(36);
     DECLARE v_product_name VARCHAR(200);
     DECLARE v_current_stock INT;
     DECLARE v_min_stock INT;
     DECLARE store_cursor CURSOR FOR 
-        SELECT store_id FROM stores WHERE status = 'ACTIVE' AND is_deleted = FALSE;
+        SELECT id FROM stores WHERE status = 'ACTIVE' AND is_deleted = FALSE;
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
     
     OPEN store_cursor;
@@ -1295,8 +1361,9 @@ BEGIN
     ANALYZE TABLE stores, users, products, categories, inventory, 
                  orders, order_items, payments, customers, coupons;
     
-    INSERT INTO performance_metrics (metric_name, metric_value, measured_at)
+    INSERT INTO performance_metrics (metric_id, metric_name, metric_value, measured_at)
     SELECT 
+        CONCAT('MET-', UNIX_TIMESTAMP(NOW()), '-001'),
         'avg_order_processing_time',
         AVG(TIMESTAMPDIFF(SECOND, created_at, updated_at)),
         NOW()
@@ -1304,8 +1371,9 @@ BEGIN
     WHERE created_at >= CURDATE() - INTERVAL 7 DAY
       AND status = 'COMPLETED';
       
-    INSERT INTO performance_metrics (metric_name, metric_value, measured_at)
+    INSERT INTO performance_metrics (metric_id, metric_name, metric_value, measured_at)
     SELECT 
+        CONCAT('MET-', UNIX_TIMESTAMP(NOW()), '-002'),
         'daily_order_count',
         COUNT(*) / 7.0,
         NOW()

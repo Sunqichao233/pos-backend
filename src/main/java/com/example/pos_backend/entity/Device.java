@@ -17,9 +17,8 @@ import java.time.Instant;
 @Table(name = "devices", schema = "posdb")
 public class Device {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "device_id", nullable = false)
-    private Long id;
+    @Column(name = "device_id", nullable = false, columnDefinition = "CHAR(36)")
+    private String id;
 
     @Size(max = 100)
     @NotNull
@@ -58,11 +57,11 @@ public class Device {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
-    @Column(name = "created_by")
-    private Long createdBy;
+    @Column(name = "created_by", columnDefinition = "CHAR(36)")
+    private String createdBy;
 
-    @Column(name = "updated_by")
-    private Long updatedBy;
+    @Column(name = "updated_by", columnDefinition = "CHAR(36)")
+    private String updatedBy;
 
     @ColumnDefault("0")
     @Column(name = "is_deleted")

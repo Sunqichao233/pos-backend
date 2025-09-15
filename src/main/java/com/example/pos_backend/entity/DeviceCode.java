@@ -17,17 +17,16 @@ import java.time.Instant;
 @Table(name = "device_codes", schema = "posdb")
 public class DeviceCode {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "device_code_id", nullable = false)
-    private Long id;
+    @Column(name = "device_code_id", nullable = false, columnDefinition = "CHAR(36)")
+    private String id;
 
     @Size(max = 12)
     @NotNull
     @Column(name = "device_code", nullable = false, length = 12, unique = true)
     private String deviceCode;
 
-    @Column(name = "device_id")
-    private Long deviceId;
+    @Column(name = "device_id", columnDefinition = "CHAR(36)")
+    private String deviceId;
 
     @Size(max = 255)
     @Column(name = "device_fingerprint", length = 255)
@@ -65,11 +64,11 @@ public class DeviceCode {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
-    @Column(name = "created_by")
-    private Long createdBy;
+    @Column(name = "created_by", columnDefinition = "CHAR(36)")
+    private String createdBy;
 
-    @Column(name = "updated_by")
-    private Long updatedBy;
+    @Column(name = "updated_by", columnDefinition = "CHAR(36)")
+    private String updatedBy;
 
     @ColumnDefault("0")
     @Column(name = "is_deleted")

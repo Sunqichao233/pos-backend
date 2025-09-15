@@ -16,7 +16,7 @@ import java.util.Optional;
  * 提供设备相关的数据访问方法
  */
 @Repository
-public interface DeviceRepository extends JpaRepository<Device, Long>, JpaSpecificationExecutor<Device> {
+public interface DeviceRepository extends JpaRepository<Device, String>, JpaSpecificationExecutor<Device> {
 
     /**
      * 根据设备名称查找设备
@@ -81,12 +81,12 @@ public interface DeviceRepository extends JpaRepository<Device, Long>, JpaSpecif
     /**
      * 根据创建者查找设备
      */
-    List<Device> findByCreatedBy(Long createdBy);
+    List<Device> findByCreatedBy(String createdBy);
 
     /**
      * 根据更新者查找设备
      */
-    List<Device> findByUpdatedBy(Long updatedBy);
+    List<Device> findByUpdatedBy(String updatedBy);
 
     /**
      * 查找在线设备（状态为ONLINE且未删除）

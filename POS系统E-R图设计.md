@@ -7,42 +7,90 @@
 ## E-R图
 
 ```
-                    POS System Database E-R Diagram
+                    POS System Database E-R Diagram (Square风格)
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              租户与用户管理                                 │
+│                          商家与门店管理（Square风格）                       │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-    Store (店铺)                    User (用户/员工)               Role (角色)
-┌─────────────────┐              ┌─────────────────┐           ┌─────────────────┐
-│ store_id (PK)   │─────1:N─────│ user_id (PK)    │──N:M─────│ role_id (PK)    │
-│ store_name      │              │ store_id (FK)   │           │ role_name       │
-│ address         │              │ email           │           │ role_code       │
-│ phone           │              │ password_hash   │           │ description     │
-│ tax_rate        │              │ first_name      │           │ is_active       │
-│ currency        │              │ last_name       │           │ created_at      │
-│ timezone        │              │ status          │           │ updated_at      │
-│ business_hours  │              │ salary          │           │ created_by      │
-│ created_at      │              │ hire_date       │           │ updated_by      │
-│ updated_at      │              │ created_at      │           │ is_deleted      │
-│ created_by      │              │ updated_at      │           └─────────────────┘
-│ updated_by      │              │ created_by      │
-│ is_active       │              │ updated_by      │           Permission (权限)
-│ is_deleted      │              │ last_login_at   │           ┌─────────────────┐
-└─────────────────┘              │ is_deleted      │           │ permission_id(PK)│
-                                 └─────────────────┘           │ permission_name │
-                                                               │ permission_code │
-    UserRole (用户角色关联)                                     │ resource        │
-┌─────────────────┐                                           │ action          │
-│ user_id (FK)    │                                           │ description     │
-│ role_id (FK)    │                                           │ created_at      │
-│ assigned_at     │              RolePermission (角色权限关联) │ updated_at      │
-│ assigned_by     │              ┌─────────────────┐           │ created_by      │
-│ is_active       │              │ role_id (FK)    │           │ updated_by      │
-└─────────────────┘              │ permission_id(FK)│          │ is_deleted      │
-                                 │ granted_at      │           └─────────────────┘
-                                 │ granted_by      │
-                                 └─────────────────┘
+   Merchant (商家)                  MerchantBankAccount (银行账户)    Store (门店)
+┌─────────────────┐              ┌─────────────────┐              ┌─────────────────┐
+│ id (PK/UUID)    │─────1:N─────│ id (PK/UUID)    │              │ id (PK/UUID)    │
+│ email           │              │ merchant_id(FK) │              │ merchant_id(FK) │
+│ password_hash   │              │ account_number  │              │ store_name      │
+│ business_name   │              │ routing_number  │              │ address         │
+│ industry        │              │ account_holder  │              │ timezone        │
+│ currency        │              │ account_type    │              │ status          │
+│ country         │              │ bank_name       │              │ tax_rate        │
+│ status          │              │ is_primary      │              │ currency        │
+│ created_at      │              │ is_verified     │              │ business_hours  │
+│ updated_at      │              │ status          │              │ created_at      │
+│ created_by      │              │ created_at      │              │ updated_at      │
+│ updated_by      │              │ updated_at      │              │ created_by      │
+│ is_deleted      │              │ created_by      │              │ updated_by      │
+└─────────────────┘              │ updated_by      │              │ is_deleted      │
+                                 │ is_deleted      │              └─────────────────┘
+                                 └─────────────────┘                       │
+                                                                          │
+                                                                         1:N
+                                                                          │
+                                                                          ▼
+                                    User (员工)                   Role (角色)
+                                ┌─────────────────┐           ┌─────────────────┐
+                                │ user_id(PK/UUID)│──N:M─────│ role_id(UUID)   │
+                                │ merchant_id(FK) │           │ role_name       │
+                                │ store_id (FK)   │           │ role_code       │
+                                │ username        │           │ description     │
+                                │ email           │           │ is_active       │
+                                │ password_hash   │           │ created_at      │
+                                │ pin_hash        │           │ updated_at      │
+                                │ first_name      │           │ created_by      │
+                                │ last_name       │           │ updated_by      │
+                                │ role            │           │ is_deleted      │
+                                │ status          │           └─────────────────┘
+                                │ salary          │                    │
+                                │ hire_date       │                    │
+                                │ last_login_at   │           Permission (权限) │
+                                │ created_at      │           ┌─────────────────┐│
+                                │ updated_at      │           │ permission_id(UUID)││
+                                │ created_by(UUID)│           │ permission_name │ │
+                                │ updated_by(UUID)│           │ permission_code │ │
+                                │ is_deleted      │           │ resource        │ │
+                                └─────────────────┘           │ action          │ │
+                                         │                    │ description     │ │
+                                         │                    │ created_at      │ │
+                                         │                    │ updated_at      │ │
+                                         │                    │ created_by(UUID)│ │
+                                         │                    │ updated_by(UUID)│ │
+                                         │                    │ is_deleted      │ │
+                                         │                    └─────────────────┘ │
+                                         │                                       │
+    UserRole (用户角色关联)               │              RolePermission (角色权限关联) │
+┌─────────────────┐                     │              ┌─────────────────┐          │
+│ user_id(FK/UUID)│─────────────────────┘              │ role_id(FK/UUID)│          │
+│ role_id(FK/UUID)│                                    │permission_id(FK/UUID)│──────────┘
+│ assigned_at     │                                    │ granted_at      │
+│ assigned_by(UUID)│                                   │ granted_by(UUID)│
+│ is_active       │                                    └─────────────────┘
+└─────────────────┘
+
+    UserSession (用户会话)               Attendance (考勤记录)          Notification (通知)
+┌─────────────────┐                    ┌─────────────────┐           ┌─────────────────┐
+│ session_id(UUID)│                    │attendance_id(UUID)│         │notification_id  │
+│ user_id(FK/UUID)│                    │ user_id(FK/UUID)│           │ (PK/UUID)       │
+│ device_id(UUID) │                    │ store_id(FK/UUID)│          │ store_id(FK/UUID)│
+│ token_hash      │                    │ clock_in_time   │           │ user_id(FK/UUID)│
+│ expires_at      │                    │ clock_out_time  │           │ title           │
+│ is_active       │                    │ total_hours     │           │ message         │
+│ created_at      │                    │ idempotency_key │           │ type            │
+│ updated_at      │                    │ sync_status     │           │ is_read         │
+│ last_activity   │                    │ created_at      │           │ created_at      │
+└─────────────────┘                    │ updated_at      │           │ updated_at      │
+                                       │ created_by(UUID)│           │ created_by(UUID)│
+                                       │ updated_by(UUID)│           │ updated_by(UUID)│
+                                       │ is_deleted      │           │ read_at         │
+                                       └─────────────────┘           │ is_deleted      │
+                                                                     └─────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              商品与库存管理                                 │
@@ -50,19 +98,20 @@
 
     Category (分类)                Product (商品)               Inventory (库存)
 ┌─────────────────┐              ┌─────────────────┐           ┌─────────────────┐
-│ category_id(PK) │─────1:N─────│ product_id (PK) │──1:1─────│ inventory_id(PK)│
-│ store_id (FK)   │              │ store_id (FK)   │           │ product_id (FK) │
-│ category_name   │              │ category_id(FK) │           │ current_stock   │
-│ description     │              │ product_name    │           │ min_stock       │
-│ display_order   │              │ description     │           │ max_stock       │
-│ is_active       │              │ price           │           │ cost_price      │
-│ created_at      │              │ image_url       │           │ last_updated    │
-│ updated_at      │              │ is_active       │           │ created_at      │
-│ created_by      │              │ created_at      │           │ updated_at      │
-│ updated_by      │              │ updated_at      │           │ created_by      │
-│ is_deleted      │              │ created_by      │           │ updated_by      │
-└─────────────────┘              │ updated_by      │           │ is_deleted      │
-                                 │ is_deleted      │           └─────────────────┘
+│category_id(UUID)│─────1:N─────│product_id(UUID) │──1:1─────│inventory_id(UUID)│
+│ store_id(FK/UUID)│             │merchant_id(FK/UUID)│        │product_id(FK/UUID)│
+│ category_name   │              │ store_id(FK/UUID)│          │ current_stock   │
+│ description     │              │category_id(FK/UUID)│        │ min_stock       │
+│ display_order   │              │ product_name    │           │ max_stock       │
+│ is_active       │              │ description     │           │ cost_price      │
+│ created_at      │              │ price           │           │ last_updated    │
+│ updated_at      │              │ image_url       │           │ created_at      │
+│created_by(UUID) │              │ is_active       │           │ updated_at      │
+│updated_by(UUID) │              │ created_at      │           │created_by(UUID) │
+│ is_deleted      │              │ updated_at      │           │updated_by(UUID) │
+└─────────────────┘              │created_by(UUID) │           │ is_deleted      │
+                                 │updated_by(UUID) │           └─────────────────┘
+                                 │ is_deleted      │
                                  └─────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -71,37 +120,37 @@
 
     Customer (客户)                Order (订单)                 OrderItem (订单项)
 ┌─────────────────┐              ┌─────────────────┐           ┌─────────────────┐
-│ customer_id(PK) │─────1:N─────│ order_id (PK)   │──1:N─────│ order_item_id(PK)│
-│ store_id (FK)   │              │ store_id (FK)   │           │ order_id (FK)   │
-│ customer_name   │              │ customer_id(FK) │           │ product_id (FK) │
-│ phone           │              │ user_id (FK)    │           │ quantity        │
-│ email           │              │ order_number    │           │ unit_price      │
-│ points_balance  │              │ idempotency_key │           │ subtotal        │
-│ membership_level│              │ total_amount    │           │ created_at      │
-│ created_at      │              │ tax_amount      │           │ created_by      │
-│ updated_at      │              │ tip_amount      │           │ updated_at      │
-│ created_by      │              │ discount_amount │           │ updated_by      │
-│ updated_by      │              │ payment_status  │           │ is_deleted      │
-│ is_deleted      │              │ order_status    │           └─────────────────┘
-└─────────────────┘              │ order_type      │
-                                 │ created_at      │           Payment (支付)
-    Coupon (优惠券)               │ updated_at      │           ┌─────────────────┐
-┌─────────────────┐              │ created_by      │──1:N─────│ payment_id (PK) │
-│ coupon_id (PK)  │──N:M────────│ updated_by      │           │ order_id (FK)   │
-│ store_id (FK)   │              │ completed_at    │           │ idempotency_key │
-│ coupon_code     │              │ is_deleted      │           │ payment_method  │
-│ discount_type   │              └─────────────────┘           │ amount          │
-│ discount_value  │                                            │ transaction_id  │
-│ min_order_amount│              OrderCoupon (关联表)          │ status          │
-│ valid_from      │              ┌─────────────────┐           │ processed_at    │
-│ valid_until     │              │ order_id (FK)   │           │ created_at      │
-│ usage_limit     │              │ coupon_id (FK)  │           │ updated_at      │
-│ used_count      │              │ discount_applied│           │ created_by      │
-│ is_active       │              │ created_at      │           │ updated_by      │
-│ created_at      │              │ created_by      │           │ is_deleted      │
-│ updated_at      │              └─────────────────┘           └─────────────────┘
-│ created_by      │
-│ updated_by      │
+│customer_id(UUID)│─────1:N─────│ order_id(UUID)  │──1:N─────│order_item_id(UUID)│
+│store_id(FK/UUID)│              │merchant_id(FK/UUID)│        │merchant_id(FK/UUID)│
+│ customer_name   │              │store_id(FK/UUID)│           │store_id(FK/UUID)│
+│ phone           │              │customer_id(FK/UUID)│        │order_id(FK/UUID)│
+│ email           │              │user_id(FK/UUID) │           │product_id(FK/UUID)│
+│ points_balance  │              │ order_number    │           │ quantity        │
+│ membership_level│              │ idempotency_key │           │ unit_price      │
+│ created_at      │              │ total_amount    │           │ subtotal        │
+│ updated_at      │              │ tax_amount      │           │ created_at      │
+│created_by(UUID) │              │ tip_amount      │           │ updated_at      │
+│updated_by(UUID) │              │ discount_amount │           │created_by(UUID) │
+│ is_deleted      │              │ payment_status  │           │updated_by(UUID) │
+└─────────────────┘              │ order_status    │           │ is_deleted      │
+                                 │ order_type      │           └─────────────────┘
+    Coupon (优惠券)               │ created_at      │
+┌─────────────────┐              │ updated_at      │           Payment (支付)
+│coupon_id(UUID)  │──N:M────────│created_by(UUID) │           ┌─────────────────┐
+│store_id(FK/UUID)│              │updated_by(UUID) │──1:N─────│payment_id(UUID) │
+│ coupon_code     │              │ completed_at    │           │order_id(FK/UUID)│
+│ discount_type   │              │ is_deleted      │           │ idempotency_key │
+│ discount_value  │              └─────────────────┘           │ payment_method  │
+│ min_order_amount│                                            │ amount          │
+│ valid_from      │              OrderCoupon (关联表)          │ transaction_id  │
+│ valid_until     │              ┌─────────────────┐           │ status          │
+│ usage_limit     │              │order_id(FK/UUID)│           │ processed_at    │
+│ used_count      │              │coupon_id(FK/UUID)│          │ created_at      │
+│ is_active       │              │ discount_applied│           │ updated_at      │
+│ created_at      │              │ created_at      │           │created_by(UUID) │
+│ updated_at      │              │created_by(UUID) │           │updated_by(UUID) │
+│created_by(UUID) │              └─────────────────┘           │ is_deleted      │
+│updated_by(UUID) │                                            └─────────────────┘
 │ is_deleted      │
 └─────────────────┘
 
@@ -111,9 +160,9 @@
 
     Attendance (考勤)              UserSession (用户会话)       Closing (交班记录)
 ┌─────────────────┐              ┌─────────────────┐           ┌─────────────────┐
-│ attendance_id(PK)│              │ session_id (PK) │           │ closing_id (PK) │
-│ user_id (FK)    │              │ user_id (FK)    │           │ user_id (FK)    │
-│ store_id (FK)   │              │ device_id (FK)  │           │ store_id (FK)   │
+│attendance_id(UUID)│            │session_id(UUID) │           │closing_id(UUID) │
+│user_id(FK/UUID) │              │user_id(FK/UUID) │           │user_id(FK/UUID) │
+│store_id(FK/UUID)│              │device_id(FK/UUID)│          │store_id(FK/UUID)│
 │ clock_in_time   │              │ token_hash      │           │ closing_date    │
 │ clock_out_time  │              │ expires_at      │           │ cash_counted    │
 │ total_hours     │              │ is_active       │           │ cash_expected   │
@@ -143,9 +192,9 @@
 
     Device (设备)                  DeviceCode (激活码)          TaxRule (税务规则)
 ┌─────────────────┐              ┌─────────────────┐           ┌─────────────────┐
-│ device_id (PK)  │─────1:N─────│device_code_id(PK)│          │ tax_rule_id(PK) │
-│ store_id (FK)   │              │ device_code(8位) │           │ store_id (FK)   │
-│ device_name     │              │ device_id (FK)  │           │ tax_name        │
+│device_id(UUID)  │─────1:N─────│device_code_id(UUID)│        │tax_rule_id(UUID)│
+│store_id(FK/UUID)│              │ device_code(12位)│          │store_id(FK/UUID)│
+│ device_name     │              │device_id(FK/UUID)│         │ tax_name        │
 │ device_type     │              │device_fingerprint│          │ tax_rate        │
 │ mac_address     │              │ status(VARCHAR) │           │ tax_type        │
 │ ip_address      │              │activation_attempts│         │ applicable_to   │
@@ -154,9 +203,9 @@
 │ registered_at   │              │ expired_at      │           │ is_active       │
 │ created_at      │              │ bound_at        │           │ created_at      │
 │ updated_at      │              │ created_at      │           │ updated_at      │
-│ created_by      │              │ updated_at      │           │ created_by      │
-│ updated_by      │              │ created_by      │           │ updated_by      │
-│ is_deleted      │              │ updated_by      │           │ is_deleted      │
+│created_by(UUID) │              │ updated_at      │           │created_by(UUID) │
+│updated_by(UUID) │              │created_by(UUID) │           │updated_by(UUID) │
+│ is_deleted      │              │updated_by(UUID) │           │ is_deleted      │
 └─────────────────┘              │ is_deleted      │           └─────────────────┘
                                 └─────────────────┘
                                 Notification (通知)
@@ -183,18 +232,18 @@
 
     DailySalesReport (日销售汇总)
 ┌─────────────────────────────────────────────────────────────────┐
-│ report_id (PK)          │ 用于快速生成Dashboard报表            │
-│ store_id (FK)           │ 避免复杂的实时统计查询               │
+│ report_id(UUID)         │ 用于快速生成Dashboard报表            │
+│ store_id(FK/UUID)       │ 避免复杂的实时统计查询               │
 │ report_date             │ 每日定时任务更新                     │
 │ total_sales_amount      │                                      │
 │ total_orders            │                                      │
 │ average_order_value     │                                      │
 │ total_tips              │                                      │
-│ top_product_id          │                                      │
+│ top_product_id(FK/UUID) │                                      │
 │ created_at              │                                      │
 │ updated_at              │                                      │
-│ created_by              │                                      │
-│ updated_by              │                                      │
+│ created_by(UUID)        │                                      │
+│ updated_by(UUID)        │                                      │
 │ is_deleted              │                                      │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -203,10 +252,18 @@
 
 基于Dashboard后台管理需求，以下是各功能模块与数据库表的对应关系：
 
-### 🔐 登录/注册页
-- **管理员邮箱/密码登录**: `User`表 - email、password_hash字段
-- **忘记密码**: `User`表 - 可扩展重置令牌字段
-- **验证码登录**: `User`表 - 可扩展验证码相关字段
+### 🔐 商家注册/登录页（Square风格，UUID主键）
+- **商家注册**: `Merchant`表 - email、password_hash、business_name、industry等字段（UUID主键：MRC-xxx）
+- **商家登录**: `Merchant`表 - email、password_hash字段验证
+- **银行账户管理**: `MerchantBankAccount`表 - 独立管理多个银行账户
+  - account_number、routing_number、account_holder字段
+  - is_primary字段标识主账户
+  - is_verified字段标识验证状态
+  - 支持多账户管理（CHECKING/SAVINGS）
+- **员工登录**: `User`表 - email、password_hash字段（UUID主键：USR-xxx）
+- **PIN码登录**: `User`表 - pin_hash字段（iPad设备登录）
+- **门店管理**: `Store`表 - 支持多门店（UUID主键：LOC-xxx）
+- **忘记密码**: 可扩展重置令牌字段
 
 ### 📊 首页（概览 Dashboard）
 - **昨日/本周销售额**: `DailySalesReport`表 - total_sales_amount字段汇总
@@ -375,9 +432,11 @@
 
 ### 核心实体
 
-#### 1. 租户与用户管理模块
-- **Store (店铺)**: 多租户架构的核心，所有业务数据都以店铺为隔离单位
-- **User (用户/员工)**: 系统用户，包括管理员、员工等，通过store_id实现租户隔离
+#### 1. 商家与门店管理模块（Square风格，UUID主键）
+- **Merchant (商家)**: Square风格的商家主体，使用UUID主键（MRC-xxx格式），包含企业基本信息，支持多门店管理
+- **MerchantBankAccount (银行账户)**: 独立的银行账户管理表，支持多账户绑定，包含验证状态和主账户标识
+- **Store (门店)**: 门店实体，使用UUID主键（LOC-xxx格式），隶属于商家，所有业务数据都以门店为隔离单位
+- **User (用户/员工)**: 门店员工，使用UUID主键（USR-xxx格式），通过merchant_id和store_id实现多层级租户隔离
 - **Role (角色)**: 权限角色定义，支持灵活的权限管理，使用role_code便于程序判断
 - **Permission (权限)**: 细粒度权限定义，通过resource和action实现精确权限控制
 - **UserRole (用户角色关联)**: 多对多关系，支持一个用户拥有多个角色
@@ -408,6 +467,8 @@
 ### 关键关系
 
 #### 一对多关系 (1:N)
+- Merchant → MerchantBankAccount: 一个商家可以有多个银行账户
+- Merchant → Store: 一个商家可以有多个门店
 - Store → User: 一个店铺有多个员工
 - Store → Product: 一个店铺有多个商品
 - Store → Customer: 一个店铺有多个客户
@@ -426,8 +487,10 @@
 
 ### 设计特点
 
-#### 1. 多租户架构
-- 所有业务表都包含store_id字段，实现数据隔离
+#### 1. 多租户架构（Square风格）
+- **两层租户隔离**: Merchant层（商家级别）和Store层（门店级别）
+- 所有业务表都包含org_id（商家ID）和store_id（门店ID）字段，实现双层数据隔离
+- 商家可以管理多个门店，每个门店的数据完全隔离
 - 通过应用层和数据库约束确保租户间数据安全
 
 #### 2. 数据完整性保障

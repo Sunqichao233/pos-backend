@@ -21,17 +21,16 @@ import java.time.LocalDate;
 @Table(name = "users", schema = "posdb")
 public class User {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "user_id", nullable = false)
-    private Long id;
+    @Column(name = "user_id", nullable = false, columnDefinition = "CHAR(36)")
+    private String id;
 
     @NotNull
-    @Column(name = "org_id", nullable = false)
-    private Long orgId;
+    @Column(name = "merchant_id", nullable = false, columnDefinition = "CHAR(36)")
+    private String merchantId;
 
     @NotNull
-    @Column(name = "store_id", nullable = false)
-    private Long storeId;
+    @Column(name = "store_id", nullable = false, columnDefinition = "CHAR(36)")
+    private String storeId;
 
     @Size(min = UserConstants.Validation.MIN_USERNAME_LENGTH, 
           max = UserConstants.Validation.MAX_USERNAME_LENGTH)
@@ -89,11 +88,11 @@ public class User {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
-    @Column(name = "created_by")
-    private Long createdBy;
+    @Column(name = "created_by", columnDefinition = "CHAR(36)")
+    private String createdBy;
 
-    @Column(name = "updated_by")
-    private Long updatedBy;
+    @Column(name = "updated_by", columnDefinition = "CHAR(36)")
+    private String updatedBy;
 
     @ColumnDefault("0")
     @Column(name = "is_deleted")

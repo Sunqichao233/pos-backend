@@ -16,7 +16,7 @@ import java.util.Optional;
  * 提供设备码相关的数据访问方法
  */
 @Repository
-public interface DeviceCodeRepository extends JpaRepository<DeviceCode, Long>, JpaSpecificationExecutor<DeviceCode> {
+public interface DeviceCodeRepository extends JpaRepository<DeviceCode, String>, JpaSpecificationExecutor<DeviceCode> {
 
     /**
      * 根据设备码查找设备码记录
@@ -26,7 +26,7 @@ public interface DeviceCodeRepository extends JpaRepository<DeviceCode, Long>, J
     /**
      * 根据设备ID查找设备码列表
      */
-    List<DeviceCode> findByDeviceId(Long deviceId);
+    List<DeviceCode> findByDeviceId(String deviceId);
 
     /**
      * 根据状态查找设备码列表
@@ -41,7 +41,7 @@ public interface DeviceCodeRepository extends JpaRepository<DeviceCode, Long>, J
     /**
      * 根据设备ID和状态查找设备码列表
      */
-    List<DeviceCode> findByDeviceIdAndStatus(Long deviceId, String status);
+    List<DeviceCode> findByDeviceIdAndStatus(String deviceId, String status);
 
     /**
      * 根据状态和删除标记查找设备码列表
@@ -76,12 +76,12 @@ public interface DeviceCodeRepository extends JpaRepository<DeviceCode, Long>, J
     /**
      * 根据创建者查找设备码
      */
-    List<DeviceCode> findByCreatedBy(Long createdBy);
+    List<DeviceCode> findByCreatedBy(String createdBy);
 
     /**
      * 根据更新者查找设备码
      */
-    List<DeviceCode> findByUpdatedBy(Long updatedBy);
+    List<DeviceCode> findByUpdatedBy(String updatedBy);
 
     /**
      * 根据设备码模糊查询
@@ -110,7 +110,7 @@ public interface DeviceCodeRepository extends JpaRepository<DeviceCode, Long>, J
      * 根据设备ID和状态查找有效的设备码
      */
     @Query("SELECT dc FROM DeviceCode dc WHERE dc.deviceId = :deviceId AND dc.status = :status AND dc.isDeleted = false")
-    List<DeviceCode> findValidDeviceCodesByDeviceIdAndStatus(@Param("deviceId") Long deviceId, @Param("status") String status);
+    List<DeviceCode> findValidDeviceCodesByDeviceIdAndStatus(@Param("deviceId") String deviceId, @Param("status") String status);
 
     /**
      * 统计指定状态的设备码数量
@@ -122,7 +122,7 @@ public interface DeviceCodeRepository extends JpaRepository<DeviceCode, Long>, J
      * 统计指定设备的设备码数量
      */
     @Query("SELECT COUNT(dc) FROM DeviceCode dc WHERE dc.deviceId = :deviceId AND dc.isDeleted = false")
-    long countByDeviceIdAndNotDeleted(@Param("deviceId") Long deviceId);
+    long countByDeviceIdAndNotDeleted(@Param("deviceId") String deviceId);
 
     /**
      * 查找即将过期的设备码（过期时间在指定时间之前且状态为UNUSED）
@@ -142,7 +142,7 @@ public interface DeviceCodeRepository extends JpaRepository<DeviceCode, Long>, J
      * 查找指定创建者在指定时间范围内创建的设备码
      */
     @Query("SELECT dc FROM DeviceCode dc WHERE dc.createdBy = :createdBy AND dc.createdAt BETWEEN :startTime AND :endTime AND dc.isDeleted = false")
-    List<DeviceCode> findByCreatedByAndCreatedAtBetween(@Param("createdBy") Long createdBy, 
+    List<DeviceCode> findByCreatedByAndCreatedAtBetween(@Param("createdBy") String createdBy, 
                                                        @Param("startTime") Instant startTime, 
                                                        @Param("endTime") Instant endTime);
 
@@ -177,7 +177,7 @@ public interface DeviceCodeRepository extends JpaRepository<DeviceCode, Long>, J
      * 查找指定设备的有效激活码（一个设备只能有一个有效码）
      */
     @Query("SELECT dc FROM DeviceCode dc WHERE dc.deviceId = :deviceId AND dc.status = 'UNUSED' AND dc.isDeleted = false ORDER BY dc.createdAt DESC")
-    Optional<DeviceCode> findActiveDeviceCodeByDeviceId(@Param("deviceId") Long deviceId);
+    Optional<DeviceCode> findActiveDeviceCodeByDeviceId(@Param("deviceId") String deviceId);
 
     /**
      * 根据设备指纹查找已绑定的设备码
@@ -213,5 +213,5 @@ public interface DeviceCodeRepository extends JpaRepository<DeviceCode, Long>, J
      * 根据设备ID查找最新的设备码（Square风格：一设备一码）
      */
     @Query("SELECT dc FROM DeviceCode dc WHERE dc.deviceId = :deviceId AND dc.isDeleted = false ORDER BY dc.createdAt DESC")
-    List<DeviceCode> findLatestDeviceCodesByDeviceId(@Param("deviceId") Long deviceId);
+    List<DeviceCode> findLatestDeviceCodesByDeviceId(@Param("deviceId") String deviceId);
 }

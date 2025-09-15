@@ -23,7 +23,7 @@ public class DeviceCodeRequestDTO {
      * 关联的设备ID（必填，Square风格按需生成）
      */
     @NotNull(message = "设备ID不能为空")
-    private Long deviceId;
+    private String deviceId;
 
     /**
      * 设备指纹信息
@@ -45,5 +45,5 @@ public class DeviceCodeRequestDTO {
     /**
      * 创建者ID
      */
-    private Long createdBy;
+    private String createdBy;
 }

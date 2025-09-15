@@ -21,7 +21,7 @@ public class DeviceCodeResponseDTO {
     /**
      * 设备码ID
      */
-    private Long id;
+    private String id;
 
     /**
      * 设备码（一次性码）
@@ -31,7 +31,7 @@ public class DeviceCodeResponseDTO {
     /**
      * 关联的设备ID
      */
-    private Long deviceId;
+    private String deviceId;
 
     /**
      * 设备指纹信息
@@ -86,12 +86,12 @@ public class DeviceCodeResponseDTO {
     /**
      * 创建者ID
      */
-    private Long createdBy;
+    private String createdBy;
 
     /**
      * 更新者ID
      */
-    private Long updatedBy;
+    private String updatedBy;
 
     /**
      * 是否已删除
