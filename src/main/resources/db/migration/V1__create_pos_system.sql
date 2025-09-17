@@ -435,17 +435,25 @@ CREATE TABLE user_sessions (
     session_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '会话主键（UUID）',
     user_id CHAR(36) NOT NULL COMMENT '用户ID',
     device_id CHAR(36) COMMENT '设备ID',
-    token_hash VARCHAR(255) NOT NULL COMMENT 'Token哈希',
-    expires_at TIMESTAMP NOT NULL COMMENT '过期时间',
-    is_active BOOLEAN DEFAULT TRUE COMMENT '是否活跃',
+    access_token VARCHAR(500) COMMENT '访问令牌',
+    refresh_token VARCHAR(500) COMMENT '刷新令牌',
+    access_token_expires_at TIMESTAMP COMMENT '访问令牌过期时间',
+    refresh_token_expires_at TIMESTAMP COMMENT '刷新令牌过期时间',
+    ip_address VARCHAR(45) COMMENT 'IP地址',
+    user_agent VARCHAR(500) COMMENT '用户代理',
+    status VARCHAR(50) DEFAULT 'ACTIVE' COMMENT '会话状态',
+    last_activity_at TIMESTAMP COMMENT '最后活动时间',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    created_by CHAR(36) COMMENT '创建人UUID',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '最后活跃时间',
+    updated_by CHAR(36) COMMENT '更新人UUID',
+    is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标识',
     
     FOREIGN KEY (user_id) REFERENCES users(user_id),
-    INDEX idx_sessions_user (user_id, is_active),
-    INDEX idx_sessions_token (token_hash),
-    INDEX idx_sessions_expires (expires_at)
+    INDEX idx_sessions_user (user_id, status, is_deleted),
+    INDEX idx_sessions_access_token (access_token),
+    INDEX idx_sessions_expires (access_token_expires_at, refresh_token_expires_at),
+    INDEX idx_sessions_activity (last_activity_at, status, is_deleted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户会话表';
 
 -- 4.3 交班记录表 (closings)
@@ -715,7 +723,10 @@ ALTER TABLE attendance ADD CONSTRAINT chk_attendance_time_order CHECK (
 );
 
 -- 会话过期时间约束
-ALTER TABLE user_sessions ADD CONSTRAINT chk_session_expires CHECK (expires_at > created_at);
+ALTER TABLE user_sessions ADD CONSTRAINT chk_session_expires CHECK (
+    (access_token_expires_at IS NULL OR access_token_expires_at > created_at) AND
+    (refresh_token_expires_at IS NULL OR refresh_token_expires_at > created_at)
+);
 
 -- =================================
 -- 10. 触发器
@@ -1312,7 +1323,9 @@ STARTS CURRENT_TIMESTAMP
 DO
 BEGIN
     DELETE FROM user_sessions 
-    WHERE expires_at < NOW() - INTERVAL 1 DAY;
+    WHERE (access_token_expires_at < NOW() - INTERVAL 1 DAY)
+       OR (refresh_token_expires_at < NOW() - INTERVAL 7 DAY)
+       OR (status = 'INACTIVE' AND updated_at < NOW() - INTERVAL 1 DAY);
 END//
 
 -- 清理已读通知 (保留30天)

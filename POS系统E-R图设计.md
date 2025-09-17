@@ -79,18 +79,20 @@
 │ session_id(UUID)│                    │attendance_id(UUID)│         │notification_id  │
 │ user_id(FK/UUID)│                    │ user_id(FK/UUID)│           │ (PK/UUID)       │
 │ device_id(UUID) │                    │ store_id(FK/UUID)│          │ store_id(FK/UUID)│
-│ token_hash      │                    │ clock_in_time   │           │ user_id(FK/UUID)│
-│ expires_at      │                    │ clock_out_time  │           │ title           │
-│ is_active       │                    │ total_hours     │           │ message         │
-│ created_at      │                    │ idempotency_key │           │ type            │
-│ updated_at      │                    │ sync_status     │           │ is_read         │
-│ last_activity   │                    │ created_at      │           │ created_at      │
-└─────────────────┘                    │ updated_at      │           │ updated_at      │
-                                       │ created_by(UUID)│           │ created_by(UUID)│
-                                       │ updated_by(UUID)│           │ updated_by(UUID)│
-                                       │ is_deleted      │           │ read_at         │
-                                       └─────────────────┘           │ is_deleted      │
-                                                                     └─────────────────┘
+│ access_token    │                    │ clock_in_time   │           │ user_id(FK/UUID)│
+│ refresh_token   │                    │ clock_out_time  │           │ title           │
+│access_token_expires_at│              │ total_hours     │           │ message         │
+│refresh_token_expires_at│             │ idempotency_key │           │ type            │
+│ ip_address      │                    │ sync_status     │           │ is_read         │
+│ user_agent      │                    │ created_at      │           │ created_at      │
+│ status          │                    │ updated_at      │           │ updated_at      │
+│ last_activity_at│                    │ created_by(UUID)│           │ created_by(UUID)│
+│ created_at      │                    │ updated_by(UUID)│           │ updated_by(UUID)│
+│ created_by(UUID)│                    │ is_deleted      │           │ read_at         │
+│ updated_at      │                    └─────────────────┘           │ is_deleted      │
+│ updated_by(UUID)│                                                  └─────────────────┘
+│ is_deleted      │
+└─────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              商品与库存管理                                 │
@@ -163,28 +165,32 @@
 │attendance_id(UUID)│            │session_id(UUID) │           │closing_id(UUID) │
 │user_id(FK/UUID) │              │user_id(FK/UUID) │           │user_id(FK/UUID) │
 │store_id(FK/UUID)│              │device_id(FK/UUID)│          │store_id(FK/UUID)│
-│ clock_in_time   │              │ token_hash      │           │ closing_date    │
-│ clock_out_time  │              │ expires_at      │           │ cash_counted    │
-│ total_hours     │              │ is_active       │           │ cash_expected   │
-│ idempotency_key │              │ created_at      │           │ difference      │
-│ sync_status     │              │ updated_at      │           │ sync_status     │
-│ created_at      │              │ last_activity   │           │ created_at      │
-│ updated_at      │              └─────────────────┘           │ updated_at      │
-│ created_by      │                                            │ created_by      │
-│ updated_by      │              Receipt (收据记录)             │ updated_by      │
-│ is_deleted      │              ┌─────────────────┐           │ is_deleted      │
-└─────────────────┘              │ receipt_id (PK) │           └─────────────────┘
-                                 │ order_id (FK)   │
-                                 │ delivery_method │
-                                 │ recipient       │
-                                 │ sent_at         │
-                                 │ status          │
-                                 │ created_at      │
-                                 │ updated_at      │
-                                 │ created_by      │
-                                 │ updated_by      │
-                                 │ is_deleted      │
-                                 └─────────────────┘
+│ clock_in_time   │              │ access_token    │           │ closing_date    │
+│ clock_out_time  │              │ refresh_token   │           │ cash_counted    │
+│ total_hours     │              │access_token_expires_at│     │ cash_expected   │
+│ idempotency_key │              │refresh_token_expires_at│    │ difference      │
+│ sync_status     │              │ ip_address      │           │ sync_status     │
+│ created_at      │              │ user_agent      │           │ created_at      │
+│ updated_at      │              │ status          │           │ updated_at      │
+│ created_by      │              │ last_activity_at│           │ created_by      │
+│ updated_by      │              │ created_at      │           │ updated_by      │
+│ is_deleted      │              │ created_by(UUID)│           │ is_deleted      │
+└─────────────────┘              │ updated_at      │           └─────────────────┘
+                                 │ updated_by(UUID)│
+                                 │ is_deleted      │           Receipt (收据记录)
+                                 └─────────────────┘           ┌─────────────────┐
+                                                               │ receipt_id (PK) │
+                                                               │ order_id (FK)   │
+                                                               │ delivery_method │
+                                                               │ recipient       │
+                                                               │ sent_at         │
+                                                               │ status          │
+                                                               │ created_at      │
+                                                               │ updated_at      │
+                                                               │ created_by      │
+                                                               │ updated_by      │
+                                                               │ is_deleted      │
+                                                               └─────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              系统管理与配置                                 │
@@ -407,9 +413,14 @@
 - **clock_in_time/clock_out_time**: 精确记录打卡时间
 
 #### UserSession (用户会话表)  
-- **token_hash**: 支持多设备登录
-- **device_id**: 关联具体设备
-- **expires_at**: 会话过期管理
+- **access_token**: 访问令牌，支持API认证
+- **refresh_token**: 刷新令牌，支持令牌续期
+- **access_token_expires_at**: 访问令牌过期时间管理
+- **refresh_token_expires_at**: 刷新令牌过期时间管理
+- **device_id**: 关联具体设备，支持多设备登录
+- **ip_address**: 记录登录IP地址，安全审计
+- **user_agent**: 记录设备信息，便于管理
+- **status**: 会话状态管理(ACTIVE/INACTIVE)
 
 #### Closing (交班记录表)
 - **cash_counted/cash_expected**: 现金盘点
