@@ -430,7 +430,7 @@ CREATE TABLE attendance (
     INDEX idx_attendance_incomplete (user_id, clock_in_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='考勤表';
 
--- 4.2 用户会话表 (user_sessions)
+-- 4.2 用户会话表 (user_sessions) - 员工会话
 CREATE TABLE user_sessions (
     session_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '会话主键（UUID）',
     user_id CHAR(36) NOT NULL COMMENT '用户ID',
@@ -454,7 +454,33 @@ CREATE TABLE user_sessions (
     INDEX idx_sessions_access_token (access_token),
     INDEX idx_sessions_expires (access_token_expires_at, refresh_token_expires_at),
     INDEX idx_sessions_activity (last_activity_at, status, is_deleted)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户会话表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户会话表（员工会话）';
+
+-- 4.2.1 商家会话表 (merchant_sessions) - 商家会话
+CREATE TABLE merchant_sessions (
+    session_id CHAR(36) NOT NULL PRIMARY KEY COMMENT '会话主键（UUID）',
+    merchant_id CHAR(36) NOT NULL COMMENT '商家ID',
+    device_id CHAR(36) COMMENT '设备ID',
+    access_token VARCHAR(500) COMMENT '访问令牌',
+    refresh_token VARCHAR(500) COMMENT '刷新令牌',
+    access_token_expires_at TIMESTAMP COMMENT '访问令牌过期时间',
+    refresh_token_expires_at TIMESTAMP COMMENT '刷新令牌过期时间',
+    ip_address VARCHAR(45) COMMENT 'IP地址',
+    user_agent VARCHAR(500) COMMENT '用户代理',
+    status VARCHAR(50) DEFAULT 'ACTIVE' COMMENT '会话状态',
+    last_activity_at TIMESTAMP COMMENT '最后活动时间',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    created_by CHAR(36) COMMENT '创建人UUID',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    updated_by CHAR(36) COMMENT '更新人UUID',
+    is_deleted BOOLEAN DEFAULT FALSE COMMENT '软删除标识',
+    
+    FOREIGN KEY (merchant_id) REFERENCES merchants(id),
+    INDEX idx_merchant_sessions_merchant (merchant_id, status, is_deleted),
+    INDEX idx_merchant_sessions_access_token (access_token),
+    INDEX idx_merchant_sessions_expires (access_token_expires_at, refresh_token_expires_at),
+    INDEX idx_merchant_sessions_activity (last_activity_at, status, is_deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商家会话表（商家登录会话）';
 
 -- 4.3 交班记录表 (closings)
 CREATE TABLE closings (
@@ -723,7 +749,13 @@ ALTER TABLE attendance ADD CONSTRAINT chk_attendance_time_order CHECK (
 );
 
 -- 会话过期时间约束
-ALTER TABLE user_sessions ADD CONSTRAINT chk_session_expires CHECK (
+ALTER TABLE user_sessions ADD CONSTRAINT chk_user_session_expires CHECK (
+    (access_token_expires_at IS NULL OR access_token_expires_at > created_at) AND
+    (refresh_token_expires_at IS NULL OR refresh_token_expires_at > created_at)
+);
+
+-- 商家会话过期时间约束
+ALTER TABLE merchant_sessions ADD CONSTRAINT chk_merchant_session_expires CHECK (
     (access_token_expires_at IS NULL OR access_token_expires_at > created_at) AND
     (refresh_token_expires_at IS NULL OR refresh_token_expires_at > created_at)
 );
@@ -1322,7 +1354,14 @@ ON SCHEDULE EVERY 1 HOUR
 STARTS CURRENT_TIMESTAMP
 DO
 BEGIN
+    -- 清理过期的用户会话
     DELETE FROM user_sessions 
+    WHERE (access_token_expires_at < NOW() - INTERVAL 1 DAY)
+       OR (refresh_token_expires_at < NOW() - INTERVAL 7 DAY)
+       OR (status = 'INACTIVE' AND updated_at < NOW() - INTERVAL 1 DAY);
+    
+    -- 清理过期的商家会话
+    DELETE FROM merchant_sessions 
     WHERE (access_token_expires_at < NOW() - INTERVAL 1 DAY)
        OR (refresh_token_expires_at < NOW() - INTERVAL 7 DAY)
        OR (status = 'INACTIVE' AND updated_at < NOW() - INTERVAL 1 DAY);

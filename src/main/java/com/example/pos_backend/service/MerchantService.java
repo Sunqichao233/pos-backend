@@ -3,10 +3,10 @@ package com.example.pos_backend.service;
 import com.example.pos_backend.dto.*;
 import com.example.pos_backend.entity.Merchant;
 import com.example.pos_backend.entity.Store;
-import com.example.pos_backend.entity.UserSession;
+import com.example.pos_backend.entity.MerchantSession;
 import com.example.pos_backend.repository.MerchantRepository;
 import com.example.pos_backend.repository.StoreRepository;
-import com.example.pos_backend.repository.UserSessionRepository;
+import com.example.pos_backend.repository.MerchantSessionRepository;
 import com.example.pos_backend.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +30,7 @@ public class MerchantService {
 
     private final MerchantRepository merchantRepository;
     private final StoreRepository storeRepository;
-    private final UserSessionRepository userSessionRepository;
+    private final MerchantSessionRepository merchantSessionRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private static final Random RANDOM = new Random();
@@ -228,10 +228,10 @@ public class MerchantService {
         Instant accessTokenExpiresAt = now.plusSeconds(accessTokenExpiration);
         Instant refreshTokenExpiresAt = now.plusSeconds(refreshTokenExpiration);
 
-        // 3. 创建用户会话记录
-        UserSession session = UserSession.builder()
+        // 3. 创建商家会话记录
+        MerchantSession session = MerchantSession.builder()
                 .sessionId(sessionId)
-                .userId(merchant.getId()) // 商家ID作为用户ID
+                .merchantId(merchant.getId()) // 商家ID
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .accessTokenExpiresAt(accessTokenExpiresAt)
@@ -245,7 +245,7 @@ public class MerchantService {
                 .isDeleted(false)
                 .build();
 
-        userSessionRepository.save(session);
+        merchantSessionRepository.save(session);
         log.info("Created session: {} for merchant: {}", sessionId, merchant.getId());
 
         // 4. 返回OAuth2风格的响应

@@ -94,6 +94,26 @@
 │ is_deleted      │
 └─────────────────┘
 
+    MerchantSession (商家会话)
+┌─────────────────┐
+│ session_id(UUID)│
+│merchant_id(FK/UUID)│
+│ device_id(UUID) │
+│ access_token    │
+│ refresh_token   │
+│access_token_expires_at│
+│refresh_token_expires_at│
+│ ip_address      │
+│ user_agent      │
+│ status          │
+│ last_activity_at│
+│ created_at      │
+│ created_by(UUID)│
+│ updated_at      │
+│ updated_by(UUID)│
+│ is_deleted      │
+└─────────────────┘
+
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              商品与库存管理                                 │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -177,20 +197,39 @@
 │ is_deleted      │              │ created_by(UUID)│           │ is_deleted      │
 └─────────────────┘              │ updated_at      │           └─────────────────┘
                                  │ updated_by(UUID)│
-                                 │ is_deleted      │           Receipt (收据记录)
-                                 └─────────────────┘           ┌─────────────────┐
-                                                               │ receipt_id (PK) │
-                                                               │ order_id (FK)   │
-                                                               │ delivery_method │
-                                                               │ recipient       │
-                                                               │ sent_at         │
-                                                               │ status          │
-                                                               │ created_at      │
-                                                               │ updated_at      │
-                                                               │ created_by      │
-                                                               │ updated_by      │
-                                                               │ is_deleted      │
-                                                               └─────────────────┘
+                                 │ is_deleted      │
+                                 └─────────────────┘
+                                
+                                MerchantSession (商家会话)     Receipt (收据记录)
+                                ┌─────────────────┐           ┌─────────────────┐
+                                │ session_id(UUID)│           │ receipt_id (PK) │
+                                │merchant_id(FK/UUID)│        │ order_id (FK)   │
+                                │ device_id(UUID) │           │ delivery_method │
+                                │ access_token    │           │ recipient       │
+                                │ refresh_token   │           │ sent_at         │
+                                │access_token_expires_at│     │ status          │
+                                │refresh_token_expires_at│    │ created_at      │
+                                │ ip_address      │           │ updated_at      │
+                                │ user_agent      │           │ created_by      │
+                                │ status          │           │ updated_by      │
+                                │ last_activity_at│           │ is_deleted      │
+                                │ created_at      │           └─────────────────┘
+                                │ created_by(UUID)│
+                                │ updated_at      │
+                                │ updated_by(UUID)│
+                                │ is_deleted      │
+                                └─────────────────┘
+                                                              │ order_id (FK)   │
+                                                              │ delivery_method │
+                                                              │ recipient       │
+                                                              │ sent_at         │
+                                                              │ status          │
+                                                              │ created_at      │
+                                                              │ updated_at      │
+                                                              │ created_by      │
+                                                              │ updated_by      │
+                                                              │ is_deleted      │
+                                                              └─────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              系统管理与配置                                 │
@@ -422,6 +461,17 @@
 - **user_agent**: 记录设备信息，便于管理
 - **status**: 会话状态管理(ACTIVE/INACTIVE)
 
+#### MerchantSession (商家会话表)
+- **merchant_id**: 外键指向merchants表，商家会话管理
+- **access_token**: 商家访问令牌，支持Dashboard API认证
+- **refresh_token**: 商家刷新令牌，支持令牌续期
+- **access_token_expires_at**: 商家访问令牌过期时间管理
+- **refresh_token_expires_at**: 商家刷新令牌过期时间管理
+- **device_id**: 关联具体设备，支持多设备登录
+- **ip_address**: 记录商家登录IP地址，安全审计
+- **user_agent**: 记录设备信息，便于管理
+- **status**: 商家会话状态管理(ACTIVE/INACTIVE)
+
 #### Closing (交班记录表)
 - **cash_counted/cash_expected**: 现金盘点
 - **difference**: 差额记录
@@ -480,9 +530,11 @@
 #### 一对多关系 (1:N)
 - Merchant → MerchantBankAccount: 一个商家可以有多个银行账户
 - Merchant → Store: 一个商家可以有多个门店
+- Merchant → MerchantSession: 一个商家可以有多个会话（多设备登录）
 - Store → User: 一个店铺有多个员工
 - Store → Product: 一个店铺有多个商品
 - Store → Customer: 一个店铺有多个客户
+- User → UserSession: 一个员工可以有多个会话（多设备登录）
 - Category → Product: 一个分类包含多个商品
 - Customer → Order: 一个客户可以有多个订单
 - Order → OrderItem: 一个订单包含多个商品项

@@ -47,7 +47,7 @@ public class MerchantRequestDTO {
     private String country = "US";
 
     /**
-     * 银行账户信息（嵌套对象）
+     * 银行账户信息（嵌套对象）- 可选
      */
     @Valid
     @JsonProperty("bank_account")
@@ -68,17 +68,14 @@ public class MerchantRequestDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class BankAccountInfo {
-        @NotBlank(message = "银行账号不能为空")
         @Size(max = 64, message = "银行账号长度不能超过64个字符")
         @JsonProperty("account_number")
         private String accountNumber;
 
-        @NotBlank(message = "银行路由号不能为空")
         @Size(max = 64, message = "银行路由号长度不能超过64个字符")
         @JsonProperty("routing_number")
         private String routingNumber;
 
-        @NotBlank(message = "账户持有人不能为空")
         @Size(max = 255, message = "账户持有人长度不能超过255个字符")
         @JsonProperty("account_holder")
         private String accountHolder;
